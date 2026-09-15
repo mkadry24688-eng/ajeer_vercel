@@ -41,9 +41,9 @@ jobs:
             test -f .env
             node generate-config.js
 
-             systemctl restart "$SERVICE"
-             systemctl is-active --quiet "$SERVICE"
+            sudo -n /usr/bin/systemctl restart "$SERVICE"
 
+            sudo -n /usr/bin/systemctl is-active "$SERVICE" | grep -q active
             curl -fsS http://127.0.0.1:3010/ >/dev/null
 
             echo "Deployment completed successfully"
