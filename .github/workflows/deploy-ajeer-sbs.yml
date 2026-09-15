@@ -1,0 +1,49 @@
+name: Deploy Ajeer Qiwa SBS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ajeer-qiwa-sbs
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          command_timeout: 20m
+          script: |
+            set -eu
+
+            APP_DIR="/home/ajeer/apps/ajeer-qiwa-sa-sbs"
+            SERVICE="ajeer-qiwa-sa-sbs"
+
+            cd "$APP_DIR"
+
+            git fetch --prune origin
+            git checkout main
+            git reset --hard origin/main
+
+            npm ci --omit=dev
+
+            test -f .env
+            node generate-config.js
+
+            systemctl restart "$SERVICE"
+            systemctl is-active --quiet "$SERVICE"
+
+            curl -fsS http://127.0.0.1:3010/ >/dev/null
+
+            echo "Deployment completed successfully"
