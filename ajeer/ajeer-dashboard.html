@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة التحكم - عقود أجير</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
+
+    <link rel="stylesheet" href="/shared/css/style.css" />
+    <link rel="stylesheet" href="/shared/css/dashboard.css" />
+  </head>
+
+  <body>
+
+    <nav class="app-navbar navbar navbar-expand-lg">
+      <div class="container">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="/index.html">
+          <div class="brand-logo-small bg-white rounded-3 d-flex align-items-center justify-content-center brand-logo-box">
+            <img src="/shared/img/logo-ajeer.png" alt="Ajeer" class="brand-logo-img" />
+          </div>
+          <span class="fw-bold text-slate-900">نظام أجير</span>
+        </a>
+        <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0"></ul>
+          <div class="d-flex align-items-center gap-3"></div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container py-4 py-md-5">
+
+      <div class="row align-items-center mb-5">
+        <div class="col-md-6 mb-3 mb-md-0">
+          <div id="greetingMessage" class="greeting-message mb-2">
+            <span class="greeting-icon fs-4"></span>
+            <span class="greeting-text h4 fw-bold text-slate-800"></span>
+          </div>
+          <p class="text-muted mb-0">إليك نظرة عامة على العقود والعمليات</p>
+        </div>
+        <div class="col-md-6 d-flex gap-2 justify-content-md-end">
+          <button onclick="backupContracts()" class="btn btn-sub-action" id="backupBtn">
+            <i class="bi bi-cloud-arrow-down fs-5"></i>
+            <span>نسخ احتياطي</span>
+          </button>
+          <button onclick="importContracts()" class="btn btn-sub-action" id="importBtn">
+            <i class="bi bi-cloud-arrow-up fs-5"></i>
+            <span>استيراد</span>
+          </button>
+          <a href="/ajeer/form.html" class="btn btn-primary text-white border-0 shadow-lg btn-new-contract">
+            <i class="bi bi-plus-lg fs-5"></i>
+            <span>عقد جديد</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-5">
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div>
+              <div class="stat-value" id="stat-total">0</div>
+              <div class="stat-label">إجمالي العقود</div>
+            </div>
+            <div class="stat-icon-wrapper bg-primary-soft">
+              <i class="bi bi-files"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div>
+              <div class="stat-value" id="stat-active">0</div>
+              <div class="stat-label">عقود سارية</div>
+            </div>
+            <div class="stat-icon-wrapper bg-success-soft">
+              <i class="bi bi-check-circle"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div>
+              <div class="stat-value" id="stat-ajeer">0</div>
+              <div class="stat-label">تعاقد أجير</div>
+            </div>
+            <div class="stat-icon-wrapper bg-primary-soft">
+              <i class="bi bi-file-text"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div>
+              <div class="stat-value" id="stat-loan">0</div>
+              <div class="stat-label">تعاقد إعارة</div>
+            </div>
+            <div class="stat-icon-wrapper bg-warning-soft">
+              <i class="bi bi-arrow-left-right"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="elite-search-area mb-5">
+        <div class="glass-surface p-4 rounded-5 border-0 shadow-sm search-glass-card">
+          <div class="row g-4 align-items-center">
+            <div class="col-12 col-xl-7">
+              <div class="input-group input-group-lg bg-white rounded-4 shadow-sm overflow-hidden border">
+                <span class="input-group-text bg-white border-0 ps-4">
+                  <i class="bi bi-search text-slate-400"></i>
+                </span>
+                <input type="text" class="form-control border-0 py-3 text-slate-800 search-input-lg" id="searchInput" placeholder="ابحث باسم العامل أو رقم الهوية..." />
+              </div>
+            </div>
+            <div class="col-12 col-xl-5">
+              <div class="d-flex gap-2">
+                <div class="flex-grow-1">
+                  <select class="form-select form-select-lg bg-white rounded-4 shadow-sm border py-3 filter-select-lg" id="filterType">
+                    <option value="">كل أنواع العقود</option>
+                    <option value="تعاقد أجير">تعاقد أجير</option>
+                    <option value="تعاقد إعارة">تعاقد إعارة</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-lg rounded-4 shadow-brand px-4 btn-filter-action" onclick="applyFilters()">
+                  <i class="bi bi-funnel"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="contractsContent">
+        <div class="row g-4" id="contractsGrid">
+
+        </div>
+
+        <div id="emptyState" class="text-center py-5 d-none fade-up-effect">
+          <div class="mb-4">
+            <div class="avatar avatar-xxl bg-white text-slate-200 mx-auto shadow-sm d-flex align-items-center justify-content-center rounded-circle empty-avatar-circle">
+              <i class="bi bi-inbox-fill"></i>
+            </div>
+          </div>
+          <h3 class="fw-bold text-slate-800 mb-2">لا توجد سجلات</h3>
+          <p class="text-slate-500 mb-4 fs-5">
+            لم نتمكن من العثور على أي عقود تطابق معايير البحث الحالية.
+          </p>
+          <a href="/ajeer/form.html" class="btn btn-primary btn-lg rounded-pill px-5 shadow-brand">
+            <i class="bi bi-plus-lg me-2"></i> إضافة أول عقد
+          </a>
+        </div>
+      </div>
+
+      <div class="text-center text-muted small mt-5">
+        &copy; 2026 نظام أجير لإدارة العقود - جميع الحقوق محفوظة
+      </div>
+    </div>
+
+    <a href="/ajeer/form.html" class="btn btn-primary rounded-circle shadow-lg d-md-none position-fixed bottom-0 start-0 m-3 d-flex align-items-center justify-content-center fab-new-contract">
+      <i class="bi bi-plus-lg fs-4"></i>
+    </a>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/shared/js/config.js"></script>
+    <script src="/shared/js/supabase-config.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/shared/js/auth.js"></script>
+    <script src="/ajeer/app.js"></script>
+    <script src="/shared/js/reminder.js"></script>
+    <script src="/shared/js/dashboard.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

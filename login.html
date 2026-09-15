@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-site-verification" content="tgrOam_fdJ4f6TJtcs_qrH7HjLSmtsAJuThxOKz3T48" />
+  <title>تسجيل الدخول - نظام أمانة الرياض</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/shared/css/login.css" />
+</head>
+
+<body>
+
+  <div class="bg-decorations">
+    <div class="circle circle-1"></div>
+    <div class="circle circle-2"></div>
+  </div>
+
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo">
+          <i class="bi bi-shield-lock-fill"></i>
+        </div>
+        <h3>بوابة الخدمات الموحدة</h3>
+        <p>سجل دخولك للوصول إلى أنظمة أمانة الرياض</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label">اسم المستخدم</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="username" placeholder="اسم المستخدم" required />
+            <span class="input-group-text"><i class="bi bi-person"></i></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">كلمة المرور</label>
+          <div class="input-group">
+            <input type="password" class="form-control" id="password" placeholder="••••••••" required />
+            <span class="input-group-text"><i class="bi bi-key"></i></span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login">
+          تسجيل الدخول <i class="bi bi-box-arrow-in-left"></i>
+        </button>
+      </form>
+
+      <div class="text-center mt-3">
+        <a href="#" onclick="showResetModal()" class="text-decoration-none text-muted small">نسيت كلمة المرور؟</a>
+      </div>
+
+      <div class="mt-4 pt-3 border-top text-center">
+        <small class="text-muted">نظام أمانة منطقة الرياض &copy; 2025</small>
+      </div>
+    </div>
+  </div>
+
+  <div id="resetModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg" style="border-radius: 20px">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="fw-bold">
+            <i class="bi bi-shield-lock text-brand-primary"></i> استعادة كلمة المرور
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label">اسم المستخدم</label>
+            <input type="text" id="reset-username" class="form-control" placeholder="اسم المستخدم المطلوب" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">المفتاح السري</label>
+            <input type="password" id="master-key" class="form-control" placeholder="أدخل المفتاح السري" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">كلمة المرور الجديدة</label>
+            <input type="password" id="new-password" class="form-control" placeholder="••••••••" />
+          </div>
+          <button onclick="handlePasswordReset()" class="btn btn-brand-primary w-100 py-3 fw-bold rounded-3">
+            تحديث كلمة المرور
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/shared/js/config.js"></script>
+  <script src="/shared/js/supabase-config.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="/shared/js/login.js"></script>
+</body>
+
+</html>

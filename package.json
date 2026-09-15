@@ -1,0 +1,8 @@
+{
+  "name": "balady-ajeer-system",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node generate-config.js && node server.js",
+    "postinstall": "node generate-config.js"
+  }
+}

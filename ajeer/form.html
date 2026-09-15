@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#4f46e5" />
+    <title>بيانات العقد - أجير</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+
+    <link rel="stylesheet" href="/shared/css/style.css" />
+  </head>
+
+  <body class="bg-body pb-5">
+
+    <div class="app-navbar py-3 mb-4 shadow-sm border-bottom bg-white sticky-top">
+      <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+          <h2 class="h5 fw-bold mb-0 d-flex align-items-center gap-2" id="formTitle">
+            <span class="rounded-circle bg-primary-50 text-primary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
+              <i class="bi bi-file-earmark-plus-fill"></i>
+            </span>
+            <span>عقد جديد</span>
+          </h2>
+          <a href="/ajeer/ajeer-dashboard.html" class="btn btn-secondary btn-sm" title="عودة">
+            <i class="bi bi-arrow-right me-1"></i>
+            <span class="d-none d-sm-inline">عودة للقائمة</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="container" style="max-width: 900px; padding-bottom: 120px !important">
+      <form id="contractForm" class="fade-up-effect">
+        <input type="hidden" id="id" name="id" />
+
+        <div class="card mb-4" style="overflow: visible">
+          <div class="card-header bg-white">
+            <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+              <i class="bi bi-file-text text-primary"></i>
+              نوع العقد
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">نوع التعاقد <span class="text-danger">*</span></label>
+              <select class="form-select form-select-lg" name="contractType" required>
+                <option value="">اختر نوع التعاقد</option>
+                <option value="تعاقد أجير" selected>تعاقد أجير</option>
+                <option value="تعاقد إعارة">تعاقد إعارة</option>
+              </select>
+            </div>
+
+            <div class="row g-3 pt-2 border-top">
+              <div class="col-12 col-md-6">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label class="form-label mb-0 fw-semibold">رقم العقد</label>
+                  <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="generateNewNumbers()">
+                    <i class="bi bi-shuffle me-1"></i> توليد رقم متنوع
+                  </button>
+                </div>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                  <input type="text" class="form-control" name="contractNumber" id="contractNumber" placeholder="مثال: TQ78491024" />
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label class="form-label mb-0 fw-semibold">رقم التحقق (تحت الباركود)</label>
+                </div>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-qr-code"></i></span>
+                  <input type="text" class="form-control" name="addNumber" id="addNumber" placeholder="مثال: TW78491024" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+              <i class="bi bi-person-vcard text-primary"></i>
+              بيانات العامل
+            </h5>
+            <span class="badge bg-danger-soft">مطلوب</span>
+          </div>
+          <div class="card-body">
+            <div class="row g-4">
+              <div class="col-12 col-md-6">
+                <label class="form-label">اسم العامل <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-person"></i></span>
+                  <input type="text" class="form-control" name="workerName" required placeholder="الاسم الكامل" />
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">المهنة <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
+                  <input type="text" class="form-control" name="workerProfession" required placeholder="مثال: عامل" />
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">رقم الهوية / الإقامة
+                  <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-card-heading"></i></span>
+                  <input type="text" class="form-control" name="workerIdNumber" required placeholder="رقم الهوية" />
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">الجنسية <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-flag"></i></span>
+                  <input type="text" class="form-control" name="workerNationality" required placeholder="الجنسية" />
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">تاريخ الميلاد</label>
+                <div class="input-group">
+                  <span class="input-group-text">
+                    <i class="bi bi-calendar-date"></i>
+                  </span>
+                  <input type="date" class="form-control" name="birthDate" />
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">الجنس</label>
+                <div class="input-group">
+                  <span class="input-group-text">
+                    <i class="bi bi-gender-ambiguous"></i>
+                  </span>
+                  <select class="form-select" name="gender">
+                    <option value="">اختر الجنس</option>
+                    <option value="ذكر">ذكر</option>
+                    <option value="أنثى">أنثى</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+
+          <div class="col-12 col-lg-6">
+            <div class="card h-100">
+              <div class="card-header bg-white">
+                <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                  <i class="bi bi-building text-primary"></i>
+                  مقدم الخدمة
+                </h5>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label">اسم المنشأة</label>
+                  <input type="text" class="form-control" name="providerEntity" placeholder="اسم المنشأة المقدمة" />
+                </div>
+                <div class="mb-0">
+                  <label class="form-label">رقم المنشأة (سجل تجاري/موحد)</label>
+                  <input type="text" class="form-control" name="providerHrId" placeholder="رقم السجل" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-6">
+            <div class="card h-100">
+              <div class="card-header bg-white">
+                <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                  <i class="bi bi-building-check text-primary"></i>
+                  المستفيد
+                </h5>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label">اسم المنشأة</label>
+                  <input type="text" class="form-control" name="beneficiaryEntity" placeholder="اسم المنشأة المستفيدة" />
+                </div>
+                <div class="mb-0">
+                  <label class="form-label">رقم المنشأة (سجل تجاري/موحد)</label>
+                  <input type="text" class="form-control" name="beneficiaryHrId" placeholder="رقم السجل" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-5">
+          <div class="card-header bg-white">
+            <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+              <i class="bi bi-info-circle text-primary"></i>
+              تفاصيل العقد والتصريح
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-4">
+              <label class="form-label">نبذة عن التعاقد</label>
+              <textarea class="form-control" name="contractSummary" rows="3" placeholder="وصف مختصر لطبيعة العمل..."></textarea>
+            </div>
+            <div class="mb-4">
+              <label class="form-label mb-2">نوع التصريح</label>
+              <div class="input-group">
+                <span class="input-group-text">
+                  <i class="bi bi-file-text"></i>
+                </span>
+                <input type="text" class="form-control" name="permitType" value="تصريح إعارة أجير" readonly />
+              </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+              <div class="col-6">
+                <label class="form-label">تاريخ البداية</label>
+                <input type="date" class="form-control" name="startDate" />
+              </div>
+              <div class="col-6">
+                <label class="form-label">تاريخ النهاية</label>
+                <input type="date" class="form-control" name="endDate" />
+              </div>
+            </div>
+
+            <div class="mb-0">
+              <label class="form-label">مواقع العمل</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                <input type="text" class="form-control" name="workLocations" placeholder="الرياض، جدة، ..." />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 150px"></div>
+
+        <div class="position-fixed bottom-0 start-0 end-0 bg-white border-top p-3 shadow-lg form-actions-container" style="z-index: 1000">
+          <div class="container" style="max-width: 900px">
+            <div class="d-flex gap-2">
+              <a href="/ajeer/ajeer-dashboard.html" class="btn btn-secondary flex-grow-1 flex-md-grow-0 px-md-5">
+                إلغاء
+              </a>
+              <button type="submit" class="btn btn-primary flex-grow-1 px-md-5 shadow-brand">
+                <i class="bi bi-check2-circle me-2"></i> حفظ العقد
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/shared/js/config.js"></script>
+    <script src="/shared/js/supabase-config.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/shared/js/auth.js"></script>
+    <script src="/ajeer/app.js"></script>
+    <script src="/shared/js/reminder.js"></script>
+    <script src="/shared/js/form.js"></script>
+  </body>
+</html>
