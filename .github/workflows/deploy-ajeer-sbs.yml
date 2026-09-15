@@ -41,8 +41,8 @@ jobs:
             test -f .env
             node generate-config.js
 
-            systemctl restart "$SERVICE"
-            systemctl is-active --quiet "$SERVICE"
+            sudo -n systemctl restart "$SERVICE"
+            sudo -n systemctl is-active --quiet "$SERVICE"
 
             curl -fsS http://127.0.0.1:3010/ >/dev/null
 
