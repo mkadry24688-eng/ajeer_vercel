@@ -11,24 +11,55 @@ function formatDate(dateStr) {
     return dateStr;
   }
 }
+let captchaProcessing = false;
+
+function triggerCaptchaClick(e) {
+  if (e) e.stopPropagation();
+  if (captchaProcessing) return;
+  captchaProcessing = true;
+
+  const checkbox = document.getElementById("rcCheckbox");
+  const spinner = document.getElementById("rcSpinner");
+  const checkmark = document.getElementById("rcCheckmark");
+
+  // Show blue spinning loader immediately
+  if (checkbox) checkbox.style.display = "none";
+  if (spinner) spinner.style.display = "block";
+
+  // Keep loading for exactly 5 seconds as requested: "يظهر لود لمدة خمس ثواني ويفتح الصفحة"
+  setTimeout(() => {
+    if (spinner) spinner.style.display = "none";
+    if (checkmark) checkmark.style.display = "block";
+
+    // Smoothly fade out and open the page
+    setTimeout(() => {
+      const modal = document.getElementById("captchaModal");
+      if (modal) {
+        modal.style.transition = "opacity 0.4s ease, transform 0.4s ease";
+        modal.style.opacity = "0";
+        modal.style.transform = "scale(0.97)";
+        setTimeout(() => {
+          modal.style.display = "none";
+        }, 400);
+      }
+    }, 400);
+  }, 5000);
+}
+window.triggerCaptchaClick = triggerCaptchaClick;
+
 function onCaptchaSuccess() {
   const modal = document.getElementById("captchaModal");
   if (modal) {
     modal.style.display = "none";
   }
 }
+window.onCaptchaSuccess = onCaptchaSuccess;
 
 function goHome() {
   window.location.href = "https://ajeer.qiwa.sa/landing/";
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    const modal = document.getElementById("captchaModal");
-    if (modal) {
-      modal.style.display = "none";
-    }
-  }
 
   const urlParams = new URLSearchParams(window.location.search);
   const contractId = urlParams.get("id");

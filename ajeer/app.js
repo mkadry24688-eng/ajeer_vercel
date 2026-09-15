@@ -74,6 +74,7 @@ class StorageManager {
   }
 
   static async getContract(id) {
+    const localContract = this.getContractFromLocal(id);
     if (this.isSupabaseAvailable()) {
       try {
         const { data, error } = await supabaseClient
@@ -83,13 +84,28 @@ class StorageManager {
           .single();
 
         if (error) throw error;
-        return this.normalizeContract(data);
+        const normalized = this.normalizeContract(data);
+        if (localContract) {
+          if (!normalized.birthDate && (localContract.birthDate || localContract.birth_date)) {
+            normalized.birthDate = localContract.birthDate || localContract.birth_date;
+          }
+          if (!normalized.gender && localContract.gender) {
+            normalized.gender = localContract.gender;
+          }
+          if (!normalized.permitType && (localContract.permitType || localContract.permit_type)) {
+            normalized.permitType = localContract.permitType || localContract.permit_type;
+          }
+          if (!normalized.addNumber && (localContract.addNumber || localContract.add_number)) {
+            normalized.addNumber = localContract.addNumber || localContract.add_number;
+          }
+        }
+        return normalized;
       } catch (error) {
         console.error("Supabase error:", error);
-        return this.getContractFromLocal(id);
+        return localContract;
       }
     }
-    return this.getContractFromLocal(id);
+    return localContract;
   }
 
   static async saveContract(contract) {
@@ -174,7 +190,19 @@ class StorageManager {
 
           if (error) throw error;
           this.contractsCache = null;
-          return this.normalizeContract(data);
+          const normalized = this.normalizeContract(data);
+          if (contract.birthDate || contract.birth_date) {
+            normalized.birthDate = contract.birthDate || contract.birth_date;
+          }
+          if (contract.gender) normalized.gender = contract.gender;
+          if (contract.permitType || contract.permit_type) {
+            normalized.permitType = contract.permitType || contract.permit_type;
+          }
+          if (contract.addNumber || contract.add_number) {
+            normalized.addNumber = contract.addNumber || contract.add_number;
+          }
+          this.saveContractToLocal(normalized);
+          return normalized;
         } else {
 
           if (!cleanContract.contract_number || this.isDummyZeroNumber(cleanContract.contract_number)) {
@@ -190,7 +218,19 @@ class StorageManager {
 
           if (error) throw error;
           this.contractsCache = null;
-          return this.normalizeContract(data);
+          const normalized = this.normalizeContract(data);
+          if (contract.birthDate || contract.birth_date) {
+            normalized.birthDate = contract.birthDate || contract.birth_date;
+          }
+          if (contract.gender) normalized.gender = contract.gender;
+          if (contract.permitType || contract.permit_type) {
+            normalized.permitType = contract.permitType || contract.permit_type;
+          }
+          if (contract.addNumber || contract.add_number) {
+            normalized.addNumber = contract.addNumber || contract.add_number;
+          }
+          this.saveContractToLocal(normalized);
+          return normalized;
         }
       } catch (error) {
         console.error("Supabase save error:", error);

@@ -17,6 +17,19 @@ function formatDate(dateStr) {
   }
 }
 
+function getRealisticBirthDate(idNumber) {
+  if (!idNumber) return "1992-05-14";
+  const digits = String(idNumber).replace(/\D/g, "");
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    sum = (sum * 31 + digits.charCodeAt(i)) % 100000;
+  }
+  const year = 1982 + (sum % 18);
+  const month = String(1 + ((sum >> 3) % 12)).padStart(2, "0");
+  const day = String(1 + ((sum >> 5) % 28)).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 async function loadContract(id) {
   currentContract = await StorageManager.getContract(id);
   if (!currentContract) {
@@ -574,12 +587,19 @@ function renderBarcode() {
       `"expiry_date":"${currentContract.endDate ? formatDate(currentContract.endDate) : ""}"`;
 
     if (currentBarcodeType === "add") {
+      const bDate = currentContract.birthDate
+        ? formatDate(currentContract.birthDate)
+        : getRealisticBirthDate(currentContract.workerIdNumber);
+      const gndr =
+        currentContract.gender && String(currentContract.gender).trim() !== ""
+          ? currentContract.gender
+          : "ذكر";
       dataText +=
         `, "add_number":"${addNumber}", ` +
-        `"birth_date":"${currentContract.birthDate ? formatDate(currentContract.birthDate) : ""}", ` +
-        `"gender":"${currentContract.gender || ""}", ` +
-        `"contract_type":"${currentContract.contractType || ""}", ` +
-        `"permit_type":"${currentContract.permitType || ""}"`;
+        `"birth_date":"${bDate}", ` +
+        `"gender":"${gndr}", ` +
+        `"contract_type":"تصريح إعارة أجير", ` +
+        `"permit_type":"تصريح إعارة أجير"`;
     }
     dataText += "}";
   }
@@ -588,7 +608,14 @@ function renderBarcode() {
   let eccParam = "H";
   let targetUrl = "";
   if (currentBarcodeType === "add") {
-    const addVerifyUrl = `${window.location.origin}/ajeer/add-verify.html?id=${currentContract.id}&num=${addNumber}&ref=${encodeURIComponent(workerName)}`;
+    const bDate = currentContract.birthDate
+      ? formatDate(currentContract.birthDate)
+      : getRealisticBirthDate(currentContract.workerIdNumber);
+    const gndr =
+      currentContract.gender && String(currentContract.gender).trim() !== ""
+        ? currentContract.gender
+        : "ذكر";
+    const addVerifyUrl = `${window.location.origin}/ajeer/add-verify.html?id=${currentContract.id}&num=${addNumber}&ref=${encodeURIComponent(workerName)}&dob=${encodeURIComponent(bDate)}&gender=${encodeURIComponent(gndr)}&pt=${encodeURIComponent("تصريح إعارة أجير")}`;
     qrData = isBlocked ? blockedUrl : addVerifyUrl;
     targetUrl = qrData;
   } else if (currentBarcodeType === "verify") {
