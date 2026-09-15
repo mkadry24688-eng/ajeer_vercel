@@ -43,7 +43,20 @@ jobs:
 
             sudo -n /usr/bin/systemctl restart "$SERVICE"
 
+                        sudo -n /usr/bin/systemctl restart "$SERVICE"
+
+            READY=0
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if curl -fsS http://127.0.0.1:3010/ >/dev/null; then
+                READY=1
+                break
+              fi
+              sleep 1
+            done
+
+            [ "$READY" -eq 1 ]
             sudo -n /usr/bin/systemctl is-active "$SERVICE" | grep -q active
-            curl -fsS http://127.0.0.1:3010/ >/dev/null
+
+            
 
             echo "Deployment completed successfully"
