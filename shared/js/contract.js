@@ -605,17 +605,10 @@ function renderBarcode() {
   }
 
   let qrData;
-  let eccParam = "H";
+  let eccParam = "M";
   let targetUrl = "";
   if (currentBarcodeType === "add") {
-    const bDate = currentContract.birthDate
-      ? formatDate(currentContract.birthDate)
-      : getRealisticBirthDate(currentContract.workerIdNumber);
-    const gndr =
-      currentContract.gender && String(currentContract.gender).trim() !== ""
-        ? currentContract.gender
-        : "ذكر";
-    const addVerifyUrl = `${window.location.origin}/ajeer/add-verify.html?id=${currentContract.id}&num=${addNumber}&ref=${encodeURIComponent(workerName)}&dob=${encodeURIComponent(bDate)}&gender=${encodeURIComponent(gndr)}&pt=${encodeURIComponent("تصريح إعارة أجير")}`;
+    const addVerifyUrl = `${window.location.origin}/ajeer/add-verify.html?id=${currentContract.id}&num=${addNumber}`;
     qrData = isBlocked ? blockedUrl : addVerifyUrl;
     targetUrl = qrData;
   } else if (currentBarcodeType === "verify") {
@@ -625,7 +618,7 @@ function renderBarcode() {
     qrData = dataText;
   }
 
-  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=${eccParam}&data=${encodeURIComponent(qrData)}`;
+  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&ecc=${eccParam}&data=${encodeURIComponent(qrData)}`;
   const imgTag = `<img src="${qrImgUrl}" alt="QR Code" />`;
 
   if (currentBarcodeType === "verify" || currentBarcodeType === "add") {
@@ -642,6 +635,7 @@ function renderBarcode() {
   if (img) {
     img.style.width = "100%";
     img.style.height = "100%";
+    img.style.imageRendering = "pixelated";
   }
 }
 
