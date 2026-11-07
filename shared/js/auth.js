@@ -2,15 +2,12 @@
 function checkAuth() {
     const loggedInUser = localStorage.getItem('portal_logged_in_user');
     if (!loggedInUser) {
-
         const legacyUser = localStorage.getItem('ajeer_logged_in_user');
         if (legacyUser) {
             localStorage.setItem('portal_logged_in_user', legacyUser);
             return JSON.parse(legacyUser);
         }
-
-        const isSubdir = window.location.pathname.includes('/ajeer/') || window.location.pathname.includes('/health/');
-        window.location.href = '/login.html';
+        window.location.href = '/logout';
         return null;
     }
     return JSON.parse(loggedInUser);
@@ -20,8 +17,7 @@ function logout() {
     localStorage.removeItem('portal_logged_in_user');
     localStorage.removeItem('ajeer_logged_in_user');
     localStorage.removeItem('health_logged_in_user');
-    const isSubdir = window.location.pathname.includes('/ajeer/') || window.location.pathname.includes('/health/');
-    window.location.href = '/login.html';
+    window.location.href = '/logout';
 }
 
 function showUserInfo() {

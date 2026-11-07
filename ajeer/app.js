@@ -4,65 +4,65 @@ class StorageManager {
   static TABLE_NAME = "contracts";
   static contractsCache = null;
 
-  static isSupabaseAvailable() {
+  static isMongoAvailable() {
     return (
-      typeof supabaseClient !== "undefined" &&
-      supabaseClient !== null &&
-      isSupabaseEnabled
+      (typeof mongoClient !== "undefined" && mongoClient !== null) ||
+      (typeof window !== "undefined" && window.CONFIG && window.CONFIG.isMongoEnabled)
     );
   }
 
+  static isSupabaseAvailable() {
+    return this.isMongoAvailable();
+  }
+
   static async getContracts(forceRefresh = false) {
-    if (this.contractsCache && !forceRefresh) {
+    if (this.contractsCache && !forceRefresh && this.contractsCache.length > 0) {
       return this.contractsCache;
     }
 
-    const localContracts = this.getContractsFromLocal();
-    if (localContracts && localContracts.length > 0 && !forceRefresh && !this.contractsCache) {
-      this.contractsCache = localContracts;
-
-      if (this.isSupabaseAvailable()) {
-        this.syncSupabaseInBackground();
-      }
-
-      return localContracts;
-    }
-
-    if (this.isSupabaseAvailable()) {
+    if (this.isMongoAvailable()) {
       try {
-        const { data, error } = await supabaseClient
-          .from(this.TABLE_NAME)
-          .select("*")
-          .order("created_at", { ascending: false });
+        const data = typeof mongoClient !== "undefined"
+          ? await mongoClient.getContracts()
+          : await (await fetch('/api/contracts')).json();
 
-        if (error) throw error;
-        const normalized = (data || []).map((c) => this.normalizeContract(c));
-        this.contractsCache = normalized;
-
-        this.saveContractsToLocalBulk(normalized);
-
-        return normalized;
+        if (Array.isArray(data) && data.length > 0) {
+          const normalized = data.map((c) => this.normalizeContract(c));
+          this.contractsCache = normalized;
+          this.saveContractsToLocalBulk(normalized);
+          return normalized;
+        }
       } catch (error) {
-        console.error("Supabase error:", error);
-        return localContracts;
+        console.error("MongoDB contracts error, falling back to local:", error);
       }
     }
+
+    const localContracts = this.getContractsFromLocal();
     this.contractsCache = localContracts;
     return localContracts;
   }
 
   static saveContractsToLocalBulk(contracts) {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(contracts));
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(contracts));
+    } catch (e) {
+      console.warn("localStorage quota exceeded or write failed, keeping in memory cache:", e);
+      try {
+        localStorage.removeItem(this.STORAGE_KEY);
+      } catch (_) {}
+    }
   }
 
   static async syncSupabaseInBackground() {
-    try {
-      const { data, error } = await supabaseClient
-        .from(this.TABLE_NAME)
-        .select("*")
-        .order("created_at", { ascending: false });
+    return this.syncMongoInBackground();
+  }
 
-      if (error) throw error;
+  static async syncMongoInBackground() {
+    try {
+      const data = typeof mongoClient !== "undefined"
+        ? await mongoClient.getContracts()
+        : await (await fetch('/api/contracts')).json();
+
       const normalized = (data || []).map((c) => this.normalizeContract(c));
       this.contractsCache = normalized;
       this.saveContractsToLocalBulk(normalized);
@@ -75,15 +75,13 @@ class StorageManager {
 
   static async getContract(id) {
     const localContract = this.getContractFromLocal(id);
-    if (this.isSupabaseAvailable()) {
+    if (this.isMongoAvailable()) {
       try {
-        const { data, error } = await supabaseClient
-          .from(this.TABLE_NAME)
-          .select("*")
-          .eq("id", id)
-          .single();
+        const data = typeof mongoClient !== "undefined"
+          ? await mongoClient.getContract(id)
+          : await (await fetch('/api/contracts/' + encodeURIComponent(id))).json();
 
-        if (error) throw error;
+        if (!data) return localContract;
         const normalized = this.normalizeContract(data);
         if (localContract) {
           if (!normalized.birthDate && (localContract.birthDate || localContract.birth_date)) {
@@ -101,7 +99,7 @@ class StorageManager {
         }
         return normalized;
       } catch (error) {
-        console.error("Supabase error:", error);
+        console.error("MongoDB getContract error:", error);
         return localContract;
       }
     }
@@ -109,7 +107,7 @@ class StorageManager {
   }
 
   static async saveContract(contract) {
-    if (this.isSupabaseAvailable()) {
+    if (this.isMongoAvailable()) {
       try {
 
         const cleanContract = {
@@ -180,60 +178,44 @@ class StorageManager {
         };
 
         if (contract.id) {
-
-          const { data, error } = await supabaseClient
-            .from(this.TABLE_NAME)
-            .update(cleanContract)
-            .eq("id", contract.id)
-            .select()
-            .single();
-
-          if (error) throw error;
-          this.contractsCache = null;
-          const normalized = this.normalizeContract(data);
-          if (contract.birthDate || contract.birth_date) {
-            normalized.birthDate = contract.birthDate || contract.birth_date;
-          }
-          if (contract.gender) normalized.gender = contract.gender;
-          if (contract.permitType || contract.permit_type) {
-            normalized.permitType = contract.permitType || contract.permit_type;
-          }
-          if (contract.addNumber || contract.add_number) {
-            normalized.addNumber = contract.addNumber || contract.add_number;
-          }
-          this.saveContractToLocal(normalized);
-          return normalized;
-        } else {
-
-          if (!cleanContract.contract_number || this.isDummyZeroNumber(cleanContract.contract_number)) {
-            const nextNumber = await this.getNextContractNumber();
-            cleanContract.contract_number = nextNumber;
-          }
-
-          const { data, error } = await supabaseClient
-            .from(this.TABLE_NAME)
-            .insert([cleanContract])
-            .select()
-            .single();
-
-          if (error) throw error;
-          this.contractsCache = null;
-          const normalized = this.normalizeContract(data);
-          if (contract.birthDate || contract.birth_date) {
-            normalized.birthDate = contract.birthDate || contract.birth_date;
-          }
-          if (contract.gender) normalized.gender = contract.gender;
-          if (contract.permitType || contract.permit_type) {
-            normalized.permitType = contract.permitType || contract.permit_type;
-          }
-          if (contract.addNumber || contract.add_number) {
-            normalized.addNumber = contract.addNumber || contract.add_number;
-          }
-          this.saveContractToLocal(normalized);
-          return normalized;
+          cleanContract.id = contract.id;
         }
+        if (contract._isNew) {
+          cleanContract._isNew = true;
+        }
+        if (contract.newId) {
+          cleanContract.newId = contract.newId;
+        }
+        if (!cleanContract.contract_number || this.isDummyZeroNumber(cleanContract.contract_number)) {
+          const nextNumber = await this.getNextContractNumber();
+          cleanContract.contract_number = nextNumber;
+        }
+
+        const isCreate = Boolean(contract._isNew || cleanContract._isNew);
+        const saved = typeof mongoClient !== "undefined"
+          ? await mongoClient.saveContract(cleanContract)
+          : await (await fetch((cleanContract.id && !isCreate) ? '/api/contracts/' + encodeURIComponent(cleanContract.id) : '/api/contracts', {
+              method: (cleanContract.id && !isCreate) ? 'PUT' : 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(cleanContract)
+            })).json();
+
+        this.contractsCache = null;
+        const normalized = this.normalizeContract(saved);
+        if (contract.birthDate || contract.birth_date) {
+          normalized.birthDate = contract.birthDate || contract.birth_date;
+        }
+        if (contract.gender) normalized.gender = contract.gender;
+        if (contract.permitType || contract.permit_type) {
+          normalized.permitType = contract.permitType || contract.permit_type;
+        }
+        if (contract.addNumber || contract.add_number) {
+          normalized.addNumber = contract.addNumber || contract.add_number;
+        }
+        this.saveContractToLocal(normalized);
+        return normalized;
       } catch (error) {
-        console.error("Supabase save error:", error);
+        console.error("MongoDB save error:", error);
         alert("خطأ في حفظ البيانات: " + error.message);
         throw error;
       }
@@ -245,16 +227,16 @@ class StorageManager {
 
   static async deleteContract(id) {
     this.contractsCache = null;
-    if (this.isSupabaseAvailable()) {
+    if (this.isMongoAvailable()) {
       try {
-        const { error } = await supabaseClient
-          .from(this.TABLE_NAME)
-          .delete()
-          .eq("id", id);
-
-        if (error) throw error;
+        if (typeof mongoClient !== "undefined") {
+          await mongoClient.deleteContract(id);
+        } else {
+          await fetch('/api/contracts/' + encodeURIComponent(id), { method: 'DELETE' });
+        }
+        this.deleteContractFromLocal(id);
       } catch (error) {
-        console.error("Supabase delete error:", error);
+        console.error("MongoDB delete error:", error);
         throw error;
       }
     } else {
@@ -321,6 +303,9 @@ class StorageManager {
   }
 
   static getContractsFromLocal() {
+    if (this.contractsCache && this.contractsCache.length > 0) {
+      return this.contractsCache;
+    }
     const data = localStorage.getItem(this.STORAGE_KEY);
     return data ? JSON.parse(data) : [];
   }
@@ -353,14 +338,20 @@ class StorageManager {
       contracts.push(contract);
     }
 
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(contracts));
+    this.contractsCache = contracts;
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(contracts));
+    } catch (_) {}
     return contract;
   }
 
   static deleteContractFromLocal(id) {
     let contracts = this.getContractsFromLocal();
     contracts = contracts.filter((c) => c.id !== id);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(contracts));
+    this.contractsCache = contracts;
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(contracts));
+    } catch (_) {}
   }
 
   static generateId() {
@@ -389,19 +380,25 @@ class StorageManager {
     return false;
   }
 
+  static async checkIdExists(id) {
+    if (!id) return false;
+    if (typeof mongoClient !== "undefined" && mongoClient.checkIdExists) {
+      return await mongoClient.checkIdExists(id);
+    }
+    try {
+      const res = await fetch('/api/contracts/check-id/' + encodeURIComponent(id));
+      if (!res.ok) return false;
+      const data = await res.json();
+      return !!data.exists;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static async getNextContractNumber() {
     try {
-      if (this.isSupabaseAvailable()) {
-        for (let attempts = 0; attempts < 5; attempts++) {
-          const candidate = "TQ" + this.generateDiverseDigits(8);
-          const { data, error } = await supabaseClient
-            .from(this.TABLE_NAME)
-            .select("contract_number")
-            .eq("contract_number", candidate)
-            .maybeSingle();
-
-          if (!error && !data) return candidate;
-        }
+      if (typeof mongoClient !== "undefined") {
+        return await mongoClient.getNextContractNumber();
       }
       return "TQ" + this.generateDiverseDigits(8);
     } catch (error) {
@@ -447,46 +444,19 @@ class StorageManager {
 
           this.contractsCache = null;
 
-          if (this.isSupabaseAvailable()) {
-
-            const { data: existing } = await supabaseClient
-              .from(this.TABLE_NAME)
-              .select("id");
-            const existingIds = new Set((existing || []).map((r) => r.id));
-
-            for (const contract of records) {
-              if (!contract.id || existingIds.has(contract.id)) {
-                skipped++;
-                continue;
-              }
-
-              const cleanContract = {
-                id: contract.id,
-                contract_type: contract.contractType || "تعاقد أجير",
-                contract_number: contract.contractNumber,
-                worker_name: contract.workerName,
-                worker_profession: contract.workerProfession,
-                worker_id_number: contract.workerIdNumber,
-                worker_nationality: contract.workerNationality,
-                provider_entity: contract.providerEntity,
-                provider_hr_id: contract.providerHrId,
-                beneficiary_entity: contract.beneficiaryEntity,
-                beneficiary_hr_id: contract.beneficiaryHrId,
-                contract_summary: contract.contractSummary,
-                start_date: contract.startDate,
-                end_date: contract.endDate,
-                work_locations: contract.workLocations,
-                is_blocked: contract.isBlocked || false,
-                blocked_reason: contract.blockedReason || null,
-              };
-              const { error } = await supabaseClient
-                .from(this.TABLE_NAME)
-                .insert([cleanContract]);
-              if (!error) imported++;
-              else {
-                console.warn("Insert error:", error);
-                skipped++;
-              }
+          if (this.isMongoAvailable()) {
+            if (typeof mongoClient !== "undefined") {
+              const res = await mongoClient.bulkInsert(records);
+              imported = res.inserted || 0;
+              skipped = res.skipped || 0;
+            } else {
+              const res = await (await fetch('/api/contracts/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(records)
+              })).json();
+              imported = res.inserted || 0;
+              skipped = res.skipped || 0;
             }
           } else {
 
@@ -511,13 +481,13 @@ class StorageManager {
 
   static async backupDatabase() {
     try {
-      const contracts = await this.getContracts();
+      const contracts = await this.getContracts(true);
       const backupData = {
         type: "ajeer_contracts_backup",
         version: "1.0",
         exportedAt: new Date().toISOString(),
         totalRecords: contracts.length,
-        source: this.isSupabaseAvailable() ? "supabase" : "localstorage",
+        source: this.isMongoAvailable() ? "mongodb" : "localstorage",
         data: contracts,
       };
 
@@ -528,46 +498,8 @@ class StorageManager {
       const timeStr = `${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}`;
       const filename = `ajeer_backup_${dateStr}_${timeStr}.json`;
 
-      if (window.showSaveFilePicker) {
-        try {
-          const fileHandle = await window.showSaveFilePicker({
-            suggestedName: filename,
-            types: [
-              {
-                description: "ملف JSON للنسخة الاحتياطية",
-                accept: { "application/json": [".json"] },
-              },
-            ],
-          });
-          const writable = await fileHandle.createWritable();
-          await writable.write(json);
-          await writable.close();
-          return {
-            success: true,
-            count: contracts.length,
-            filename: fileHandle.name,
-          };
-        } catch (pickerErr) {
-
-          if (pickerErr.name === "AbortError") {
-            return { success: false, cancelled: true, count: 0, filename };
-          }
-
-          console.warn("showSaveFilePicker failed, falling back:", pickerErr);
-        }
-      }
-
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      return { success: true, count: contracts.length, filename };
+      return { blob, count: contracts.length, filename };
     } catch (error) {
       console.error("Backup error:", error);
       throw error;
@@ -600,8 +532,8 @@ function showToast(message, type = "success") {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  if (StorageManager.isSupabaseAvailable()) {
-    console.log("Supabase Mode: Active");
+  if (StorageManager.isMongoAvailable()) {
+    console.log("MongoDB Mode: Active");
   } else {
     console.log("LocalStorage Mode: Active");
   }
@@ -611,7 +543,7 @@ window.addEventListener("DOMContentLoaded", () => {
 async function autoBlockExpiredContracts(contracts = null) {
   try {
     if (!contracts) {
-      contracts = await StorageManager.getContracts();
+      contracts = await StorageManager.getContracts(true);
     }
 
     const today = new Date();

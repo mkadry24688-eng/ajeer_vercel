@@ -1,3 +1,10 @@
+// Escape untrusted values only at HTML rendering boundaries.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
 
 const statusBox = document.getElementById("statusBox");
 
@@ -5,7 +12,7 @@ function showStatus(message, isSuccess) {
   if (statusBox) {
     statusBox.className = "status-box " + (isSuccess ? "success" : "error");
     statusBox.innerHTML = `<i class="bi bi-${isSuccess ? "check-circle-fill" : "exclamation-triangle-fill"
-      }"></i>${message}`;
+      }"></i>${escapeHtml(message)}`;
   }
 }
 

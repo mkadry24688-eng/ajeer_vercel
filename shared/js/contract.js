@@ -1,3 +1,10 @@
+// Escape untrusted values only at HTML rendering boundaries.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
 
 let currentContract = null;
 let currentBarcodeType = "verify";
@@ -393,11 +400,8 @@ async function applyNewAddNumber(newNum) {
         contracts[idx].contractNumber = currentContract.contractNumber;
         localStorage.setItem(StorageManager.STORAGE_KEY, JSON.stringify(contracts));
       }
-      if (StorageManager.isSupabaseAvailable && StorageManager.isSupabaseAvailable()) {
-        await supabaseClient
-          .from("contracts")
-          .update({ contract_number: currentContract.contractNumber })
-          .eq("id", currentContract.id);
+      if (typeof StorageManager !== "undefined" && StorageManager.saveContract) {
+        await StorageManager.saveContract(currentContract);
       }
     }
   } catch (e) {
@@ -462,7 +466,7 @@ function updateContractNumberLabel() {
   if (currentBarcodeType === "add") {
     const addNum = getContractAddNumber(currentContract);
     contractNumberEl.innerHTML = `
-      <div class="add-barcode-number" title="انقر لتعديل أو توليد رقم التحقق" style="cursor: pointer;" onclick="promptEditAddNumber()">${addNum}</div>
+      <div class="add-barcode-number" title="انقر لتعديل أو توليد رقم التحقق" style="cursor: pointer;" onclick="promptEditAddNumber()">${escapeHtml(addNum)}</div>
       <div class="add-barcode-subtext">امسح للتحقق</div>
     `;
   } else {
@@ -570,8 +574,8 @@ function renderBarcode() {
   const isBlocked = currentContract.isBlocked || currentContract.is_blocked || isExpired;
   const addNumber = getContractAddNumber(currentContract);
   const workerName = currentContract.workerName || "";
-  const verifyUrl = `${window.location.origin}/ajeer/verify.html?id=${currentContract.id}&num=${addNumber}&ref=${encodeURIComponent(workerName)}`;
-  const blockedUrl = `${window.location.origin}/ajeer/blocked.html?id=${currentContract.id}`;
+  const verifyUrl = `${(window.CONFIG && window.CONFIG.PRODUCTION_URL) || window.location.origin}/ajeer/verify.html?id=${currentContract.id}&num=${addNumber}&ref=${encodeURIComponent(workerName)}`;
+  const blockedUrl = `${(window.CONFIG && window.CONFIG.PRODUCTION_URL) || window.location.origin}/ajeer/blocked.html?id=${currentContract.id}`;
 
   let status = isBlocked ? "موقوف" : "ساري";
 
@@ -605,11 +609,21 @@ function renderBarcode() {
   }
 
   let qrData;
-  let eccParam = "M";
+  const eccParam = currentBarcodeType === "add" ? "H" : "M";
   let targetUrl = "";
   if (currentBarcodeType === "add") {
-    const addVerifyUrl = `${window.location.origin}/ajeer/add-verify.html?id=${currentContract.id}&num=${addNumber}`;
-    qrData = isBlocked ? blockedUrl : addVerifyUrl;
+    const isLocalPreview = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+    const verificationOrigin = isLocalPreview
+      ? window.location.origin
+      : (window.CONFIG && window.CONFIG.PRODUCTION_URL) || window.location.origin;
+    const blockedReason = currentContract.blockedReason || currentContract.blocked_reason;
+    const isManuallyBlocked = (currentContract.isBlocked || currentContract.is_blocked)
+      && !(isExpired && blockedReason === "انتهاء مدة العقد");
+    const verificationPath = isManuallyBlocked ? "/ajeer/blocked.html" : "/ajeer/add-verify.html";
+    const addVerifyUrl = new URL(verificationPath, verificationOrigin);
+    addVerifyUrl.searchParams.set("id", currentContract.id);
+    if (!isManuallyBlocked) addVerifyUrl.searchParams.set("num", addNumber);
+    qrData = addVerifyUrl.href;
     targetUrl = qrData;
   } else if (currentBarcodeType === "verify") {
     qrData = isBlocked ? blockedUrl : verifyUrl;
@@ -619,16 +633,21 @@ function renderBarcode() {
   }
 
   const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&ecc=${eccParam}&data=${encodeURIComponent(qrData)}`;
-  const imgTag = `<img src="${qrImgUrl}" alt="QR Code" />`;
-
+  const qrImage = document.createElement("img");
+  qrImage.src = qrImgUrl;
+  qrImage.alt = "QR Code";
+  container.replaceChildren(qrImage);
   if (currentBarcodeType === "verify" || currentBarcodeType === "add") {
-    container.innerHTML = `
-      <a href="${targetUrl}" target="_blank" rel="noopener noreferrer" style="cursor: pointer; display: block; height: 100%;">
-        ${imgTag}
-      </a>
-    `;
-  } else {
-    container.innerHTML = imgTag;
+    const url = new URL(targetUrl, window.location.origin);
+    if (["http:", "https:"].includes(url.protocol)) {
+      const link = document.createElement("a");
+      link.href = url.href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.style.cssText = "cursor: pointer; display: block; height: 100%;";
+      link.appendChild(qrImage);
+      container.replaceChildren(link);
+    }
   }
 
   const img = container.querySelector("img");

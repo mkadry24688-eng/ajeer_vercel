@@ -29,11 +29,12 @@
         <p>سجل دخولك للوصول إلى أنظمة أمانة الرياض</p>
       </div>
 
-      <form id="loginForm">
+      <form id="loginForm" action="/login" method="POST">
+        <!-- ERROR_ALERT -->
         <div class="form-group">
           <label class="form-label">اسم المستخدم</label>
           <div class="input-group">
-            <input type="text" class="form-control" id="username" placeholder="اسم المستخدم" required />
+            <input type="text" class="form-control" id="username" name="username" placeholder="اسم المستخدم" required />
             <span class="input-group-text"><i class="bi bi-person"></i></span>
           </div>
         </div>
@@ -41,7 +42,7 @@
         <div class="form-group">
           <label class="form-label">كلمة المرور</label>
           <div class="input-group">
-            <input type="password" class="form-control" id="password" placeholder="••••••••" required />
+            <input type="password" class="form-control" id="password" name="password" placeholder="••••••••" required />
             <span class="input-group-text"><i class="bi bi-key"></i></span>
           </div>
         </div>
@@ -52,7 +53,6 @@
       </form>
 
       <div class="text-center mt-3">
-        <a href="#" onclick="showResetModal()" class="text-decoration-none text-muted small">نسيت كلمة المرور؟</a>
       </div>
 
       <div class="mt-4 pt-3 border-top text-center">
@@ -60,40 +60,10 @@
       </div>
     </div>
   </div>
-
-  <div id="resetModal" class="modal fade" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg" style="border-radius: 20px">
-        <div class="modal-header border-0 pb-0">
-          <h5 class="fw-bold">
-            <i class="bi bi-shield-lock text-brand-primary"></i> استعادة كلمة المرور
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body p-4">
-          <div class="mb-3">
-            <label class="form-label">اسم المستخدم</label>
-            <input type="text" id="reset-username" class="form-control" placeholder="اسم المستخدم المطلوب" />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">المفتاح السري</label>
-            <input type="password" id="master-key" class="form-control" placeholder="أدخل المفتاح السري" />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">كلمة المرور الجديدة</label>
-            <input type="password" id="new-password" class="form-control" placeholder="••••••••" />
-          </div>
-          <button onclick="handlePasswordReset()" class="btn btn-brand-primary w-100 py-3 fw-bold rounded-3">
-            تحديث كلمة المرور
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/shared/js/config.js"></script>
-  <script src="/shared/js/supabase-config.js"></script>
+  <script src="/shared/js/mongo-client.js"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

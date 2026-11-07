@@ -8,3 +8,8 @@ Thumbs.db
 .idea/
 
 .env
+
+# Local backups must never be committed or published
+*.bak*
+*.backup*
+*~

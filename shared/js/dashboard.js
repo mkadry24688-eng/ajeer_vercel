@@ -1,3 +1,10 @@
+// Escape untrusted values only at HTML rendering boundaries.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
 
 let cachedContracts = [];
 let displayedLimit = 24;
@@ -39,7 +46,7 @@ document.addEventListener('mouseover', function(e) {
 
 async function loadDashboard() {
   try {
-    const contracts = await StorageManager.getContracts();
+    const contracts = await StorageManager.getContracts(true);
     cachedContracts = contracts;
 
     await renderCards(contracts);
@@ -80,7 +87,7 @@ function createContractCardElement(contract, index, isNewBatch = false) {
 
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <span class="badge-custom bg-${themeColor}-soft">
-                    ${contractType}
+                    ${escapeHtml(contractType)}
                 </span>
                 ${
                   isBlocked
@@ -98,9 +105,9 @@ function createContractCardElement(contract, index, isNewBatch = false) {
                     ${!isBlocked ? '<div class="position-absolute translate-middle bg-white rounded-circle shadow border d-flex align-items-center justify-content-center card-verified-badge"><i class="bi bi-patch-check-fill card-verified-icon"></i></div>' : ""}
                 </div>
 
-                <h4 class="fw-bold text-slate-900 mb-1 card-worker-title">${contract.workerName || "-"}</h4>
+                <h4 class="fw-bold text-slate-900 mb-1 card-worker-title">${escapeHtml(contract.workerName || "-")}</h4>
                 <span class="badge-id card-badge-id">
-                    <i class="bi bi-hash me-1"></i>${contract.contractNumber || "-"}
+                    <i class="bi bi-hash me-1"></i>${escapeHtml(contract.contractNumber || "-")}
                 </span>
             </div>
 
@@ -111,7 +118,7 @@ function createContractCardElement(contract, index, isNewBatch = false) {
                     </div>
                     <div class="overflow-hidden">
                         <small class="d-block text-slate-400 fw-bold mb-0.5 card-info-label">المنشأة المستفيدة</small>
-                        <div class="fw-bold text-slate-800 text-truncate card-info-val">${contract.beneficiaryEntity || "-"}</div>
+                        <div class="fw-bold text-slate-800 text-truncate card-info-val">${escapeHtml(contract.beneficiaryEntity || "-")}</div>
                     </div>
                 </div>
 
@@ -119,34 +126,34 @@ function createContractCardElement(contract, index, isNewBatch = false) {
                     <div class="info-item flex-grow-1 mb-0 p-2">
                         <div class="text-center w-100">
                             <small class="d-block text-slate-400 fw-bold mb-0.5 card-info-label">بداية العقد</small>
-                            <div class="fw-bold text-slate-700 card-info-date">${formatDate(contract.startDate)}</div>
+                            <div class="fw-bold text-slate-700 card-info-date">${escapeHtml(formatDate(contract.startDate))}</div>
                         </div>
                     </div>
                     <div class="info-item flex-grow-1 mb-0 p-2">
                         <div class="text-center w-100">
                             <small class="d-block text-slate-400 fw-bold mb-0.5 card-info-label">نهاية العقد</small>
-                            <div class="fw-bold text-slate-700 card-info-date">${formatDate(contract.endDate)}</div>
+                            <div class="fw-bold text-slate-700 card-info-date">${escapeHtml(formatDate(contract.endDate))}</div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="d-flex align-items-center gap-2 mt-auto pt-3">
-                <a href="/ajeer/contract.html?id=${contract.id}" class="btn btn-card-action ${isAjeer ? 'bg-primary-gradient' : 'bg-info-gradient'} flex-grow-1 d-flex align-items-center justify-content-center gap-1 btn-card-details">
+                <a href="/ajeer/contract.html?id=${escapeHtml(encodeURIComponent(contract.id))}" class="btn btn-card-action ${isAjeer ? 'bg-primary-gradient' : 'bg-info-gradient'} flex-grow-1 d-flex align-items-center justify-content-center gap-1 btn-card-details">
                     <span>التفاصيل</span>
                     <i class="bi bi-arrow-left"></i>
                 </a>
 
                 <div class="d-flex gap-1.5">
-                    <a href="/ajeer/form.html?id=${contract.id}" class="micro-btn micro-btn-blue shadow-sm" data-bs-toggle="tooltip" title="تعديل">
+                    <a href="/ajeer/form.html?id=${escapeHtml(encodeURIComponent(contract.id))}" class="micro-btn micro-btn-blue shadow-sm" data-bs-toggle="tooltip" title="تعديل">
                         <i class="bi bi-pencil-square"></i>
                     </a>
 
-                    <button onclick="toggleBlock('${contract.id}', ${isBlocked})" class="micro-btn ${isBlocked ? "micro-btn-emerald" : "micro-btn-amber"} shadow-sm" data-bs-toggle="tooltip" title="${isBlocked ? "تفعيل" : "إيقاف"}">
+                    <button data-action="toggle" class="micro-btn ${isBlocked ? "micro-btn-emerald" : "micro-btn-amber"} shadow-sm" data-bs-toggle="tooltip" title="${isBlocked ? "تفعيل" : "إيقاف"}">
                         <i class="bi ${isBlocked ? "bi-unlock" : "bi-lock"}"></i>
                     </button>
 
-                    <button onclick="confirmDelete('${contract.id}')" class="micro-btn micro-btn-rose shadow-sm" data-bs-toggle="tooltip" title="حذف">
+                    <button data-action="delete" class="micro-btn micro-btn-rose shadow-sm" data-bs-toggle="tooltip" title="حذف">
                         <i class="bi bi-trash3"></i>
                     </button>
                 </div>
@@ -156,6 +163,9 @@ function createContractCardElement(contract, index, isNewBatch = false) {
     </div>
   `;
 
+  const toggle = col.querySelector('[data-action="toggle"]');
+  toggle.onclick = () => toggleBlock(contract.id, Boolean(contract.isBlocked), toggle);
+  col.querySelector('[data-action="delete"]').onclick = () => confirmDelete(contract.id);
   return col;
 }
 
@@ -170,11 +180,11 @@ async function renderCards(contractsList = null, searchTerm = "", typeFilter = "
   const emptyState = document.getElementById("emptyState");
 
   const filtered = contracts.filter((c) => {
-    const matchesSearch =
-      !searchTerm ||
-      (c.workerName && c.workerName.toLowerCase().includes(searchTerm)) ||
-      (c.workerIdNumber &&
-        c.workerIdNumber.toLowerCase().includes(searchTerm));
+    const matchesSearch = !searchTerm || [
+      c.workerName, c.workerIdNumber,
+      c.providerEntity, c.providerHrId,
+      c.beneficiaryEntity, c.beneficiaryHrId,
+    ].some(value => String(value ?? "").toLowerCase().includes(searchTerm));
     const contractType = c.contractType || "تعاقد أجير";
     const matchesType = !typeFilter || contractType === typeFilter;
     return matchesSearch && matchesType;
@@ -243,7 +253,7 @@ function handleShowMore() {
 }
 
 function applyFilters(isAppend = false) {
-  const searchTerm = document.getElementById("searchInput").value.toLowerCase();
+  const searchTerm = document.getElementById("searchInput").value.trim().toLowerCase();
   const typeFilter = document.getElementById("filterType").value;
   renderCards(null, searchTerm, typeFilter, isAppend);
 }
@@ -267,7 +277,7 @@ function copyToClipboard(text) {
 async function updateStats(contractsList = null) {
   let contracts = contractsList;
   if (!contracts) {
-    contracts = cachedContracts.length > 0 ? cachedContracts : await StorageManager.getContracts();
+    contracts = cachedContracts.length > 0 ? cachedContracts : await StorageManager.getContracts(true);
   }
   cachedContracts = contracts;
 
@@ -306,7 +316,8 @@ function animateValue(id, start, end, duration) {
     const elapsed = currentTime - startTime;
     const progress = Math.min(elapsed / duration, 1);
     const easeOut = 1 - Math.pow(1 - progress, 3);
-    obj.textContent = Math.floor(start + range * easeOut);
+    const currentVal = Math.floor(start + range * easeOut);
+    obj.textContent = (progress >= 1 ? end : currentVal).toLocaleString('en-US');
 
     if (progress < 1) {
       requestAnimationFrame(update);
@@ -315,14 +326,11 @@ function animateValue(id, start, end, duration) {
   requestAnimationFrame(update);
 }
 
-async function toggleBlock(id, currentBlockState) {
-  const button = document.querySelector(
-    `button[onclick="toggleBlock('${id}', ${currentBlockState})"]`
-  );
+async function toggleBlock(id, currentBlockState, button) {
 
   if (button) {
     const newState = !currentBlockState;
-    button.setAttribute("onclick", `toggleBlock('${id}', ${newState})`);
+    button.onclick = () => toggleBlock(id, newState, button);
     button.className = `micro-btn ${newState ? "micro-btn-emerald" : "micro-btn-amber"} shadow-sm`;
     button.setAttribute("title", newState ? "تفعيل" : "إيقاف");
     button.innerHTML = `<i class="bi ${newState ? "bi-unlock" : "bi-lock"}"></i>`;
@@ -389,16 +397,35 @@ async function backupContracts() {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> جاري التصدير...';
 
   try {
-    const result = await StorageManager.backupDatabase();
-    if (result.cancelled) return;
+    const { blob, count, filename } = await StorageManager.backupDatabase();
+    const url = URL.createObjectURL(blob);
+    const content = document.createElement("div");
+    const description = document.createElement("p");
+    description.className = "backup-dialog__description";
+    description.textContent = "النسخة الاحتياطية جاهزة للتنزيل";
+    const details = document.createElement("p");
+    details.className = "backup-dialog__details";
+    details.textContent = new Intl.NumberFormat("ar").format(count) + " عقد";
+    const downloadLink = document.createElement("a");
+    downloadLink.href = url;
+    downloadLink.download = filename;
+    downloadLink.className = "btn btn-primary backup-dialog__download";
+    downloadLink.textContent = "تنزيل ملف النسخة الاحتياطية";
+    content.append(description, details, downloadLink);
 
-    Swal.fire({
-      icon: "success",
-      title: "تم التصدير بنجاح!",
-      html: `تم حفظ النسخة الاحتياطية تحتوي على <strong>${result.count}</strong> عقد.<br><small class="text-muted">${result.filename}</small>`,
-      confirmButtonText: "حسناً",
-      confirmButtonColor: "#0d6efd",
-    });
+    try {
+      await Swal.fire({
+        title: "النسخ الاحتياطي",
+        html: content,
+        customClass: { popup: "backup-dialog" },
+        width: "min(400px, calc(100vw - 32px))",
+        showConfirmButton: false,
+        showCloseButton: true,
+        closeButtonAriaLabel: "إغلاق",
+      });
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
   } catch (error) {
     Swal.fire({
       icon: "error",
@@ -436,7 +463,7 @@ async function importContracts() {
     Swal.fire({
       icon: "success",
       title: "تم الاستيراد بنجاح!",
-      html: `تم إضافة <strong>${result.imported}</strong> عقد جديد.<br>تم تخطي <strong>${result.skipped}</strong> عقد موجودة مسبقاً.`,
+      html: `تم إضافة <strong>${escapeHtml(result.imported)}</strong> عقد جديد.<br>تم تخطي <strong>${escapeHtml(result.skipped)}</strong> عقد موجودة مسبقاً.`,
       confirmButtonColor: "#198754",
     });
   } catch (error) {

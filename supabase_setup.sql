@@ -9,11 +9,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-INSERT INTO users (username, password, full_name)
-VALUES ('admin', 'admin123', 'مدير النظام') ON CONFLICT (username) DO NOTHING;
-INSERT INTO users (username, password, full_name)
-VALUES ('admin12@gmail.com', '123456789', 'المشرف') ON CONFLICT (username) DO NOTHING;
-
 CREATE TABLE IF NOT EXISTS contracts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     contract_type TEXT DEFAULT 'تعاقد أجير',

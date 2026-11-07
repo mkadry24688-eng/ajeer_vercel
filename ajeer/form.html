@@ -78,6 +78,22 @@
                 </div>
               </div>
             </div>
+
+            <div class="row g-3 pt-3 mt-1 border-top" id="customIdRow">
+              <div class="col-12">
+                <label class="form-label mb-1 fw-semibold d-flex justify-content-between align-items-center">
+                  <span><i class="bi bi-fingerprint text-primary me-1"></i> معرّف العقد الخاص (اختياري / ID)</span>
+                  <small class="text-muted fw-normal">اتركه فارغاً للتوليد التلقائي، أو الصق معرّفاً قديماً</small>
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-key"></i></span>
+                  <input type="text" class="form-control font-monospace" name="customId" id="customId" placeholder="مثال: 6069b7d1-0823-49bf-bbe3-429c20005e1f أو أي معرّف مخصص" />
+                </div>
+                <div class="form-text text-muted small mt-1">
+                  إذا قمت بإدخال معرّف، سيتحقق النظام فوراً من عدم تكراره ويضيف العقد بهذا المعرّف مباشرة.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -102,23 +118,55 @@
                 <label class="form-label">المهنة <span class="text-danger">*</span></label>
                 <div class="input-group">
                   <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
-                  <input type="text" class="form-control" name="workerProfession" required placeholder="مثال: عامل" />
+                  <select class="form-select" id="workerProfessionSelect" name="workerProfessionSelect" required>
+                    <option value="">اختر المهنة...</option>
+                    <option value="عامل عادى">عامل عادى</option>
+                    <option value="عمال">عمال</option>
+                    <option value="سائق خاص">سائق خاص</option>
+                    <option value="سائق شاحنة ثقيلة">سائق شاحنة ثقيلة</option>
+                    <option value="عامل انشاءات">عامل انشاءات</option>
+                    <option value="عامل تحميل وتنزيل">عامل تحميل وتنزيل</option>
+                    <option value="نادل">نادل</option>
+                    <option value="أخرى">أخرى</option>
+                  </select>
                 </div>
+                <div id="workerProfessionCustomWrapper" class="mt-2 d-none">
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-pencil"></i></span>
+                    <input type="text" class="form-control" id="workerProfessionCustom" name="workerProfessionCustom" placeholder="اكتب المهنة هنا..." />
+                  </div>
+                </div>
+                <input type="hidden" name="workerProfession" id="workerProfession" />
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">رقم الهوية / الإقامة
                   <span class="text-danger">*</span></label>
                 <div class="input-group">
                   <span class="input-group-text"><i class="bi bi-card-heading"></i></span>
-                  <input type="text" class="form-control" name="workerIdNumber" required placeholder="رقم الهوية" />
+                  <input type="text" class="form-control" name="workerIdNumber" id="workerIdNumber" required placeholder="رقم الهوية" />
                 </div>
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">الجنسية <span class="text-danger">*</span></label>
                 <div class="input-group">
                   <span class="input-group-text"><i class="bi bi-flag"></i></span>
-                  <input type="text" class="form-control" name="workerNationality" required placeholder="الجنسية" />
+                  <select class="form-select" id="workerNationalitySelect" name="workerNationalitySelect" required>
+                    <option value="">اختر الجنسية...</option>
+                    <option value="اليمن">اليمن</option>
+                    <option value="مصر">مصر</option>
+                    <option value="بنجلاديش">بنجلاديش</option>
+                    <option value="الهند">الهند</option>
+                    <option value="الفلبين">الفلبين</option>
+                    <option value="أخرى">أخرى</option>
+                  </select>
                 </div>
+                <div id="workerNationalityCustomWrapper" class="mt-2 d-none">
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-pencil"></i></span>
+                    <input type="text" class="form-control" id="workerNationalityCustom" name="workerNationalityCustom" placeholder="اكتب الجنسية هنا..." />
+                  </div>
+                </div>
+                <input type="hidden" name="workerNationality" id="workerNationality" />
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">تاريخ الميلاد</label>
@@ -135,9 +183,8 @@
                   <span class="input-group-text">
                     <i class="bi bi-gender-ambiguous"></i>
                   </span>
-                  <select class="form-select" name="gender">
-                    <option value="">اختر الجنس</option>
-                    <option value="ذكر">ذكر</option>
+                  <select class="form-select" name="gender" id="gender">
+                    <option value="ذكر" selected>ذكر</option>
                     <option value="أنثى">أنثى</option>
                   </select>
                 </div>
@@ -159,11 +206,27 @@
               <div class="card-body">
                 <div class="mb-3">
                   <label class="form-label">اسم المنشأة</label>
-                  <input type="text" class="form-control" name="providerEntity" placeholder="اسم المنشأة المقدمة" />
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-building"></i></span>
+                    <select class="form-select" id="providerEntitySelect" name="providerEntitySelect">
+                      <option value="">اختر المنشأة...</option>
+                      <option value="أخرى">أخرى</option>
+                    </select>
+                  </div>
+                  <div id="providerEntityCustomWrapper" class="mt-2 d-none">
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-pencil"></i></span>
+                      <input type="text" class="form-control" id="providerEntityCustom" name="providerEntityCustom" placeholder="اكتب اسم المنشأة هنا..." />
+                    </div>
+                  </div>
+                  <input type="hidden" name="providerEntity" id="providerEntity" />
                 </div>
                 <div class="mb-0">
                   <label class="form-label">رقم المنشأة (سجل تجاري/موحد)</label>
-                  <input type="text" class="form-control" name="providerHrId" placeholder="رقم السجل" />
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                    <input type="text" class="form-control" name="providerHrId" id="providerHrId" placeholder="رقم السجل" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -180,11 +243,27 @@
               <div class="card-body">
                 <div class="mb-3">
                   <label class="form-label">اسم المنشأة</label>
-                  <input type="text" class="form-control" name="beneficiaryEntity" placeholder="اسم المنشأة المستفيدة" />
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-building-check"></i></span>
+                    <select class="form-select" id="beneficiaryEntitySelect" name="beneficiaryEntitySelect">
+                      <option value="">اختر المنشأة...</option>
+                      <option value="أخرى">أخرى</option>
+                    </select>
+                  </div>
+                  <div id="beneficiaryEntityCustomWrapper" class="mt-2 d-none">
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-pencil"></i></span>
+                      <input type="text" class="form-control" id="beneficiaryEntityCustom" name="beneficiaryEntityCustom" placeholder="اكتب اسم المنشأة المستفيدة هنا..." />
+                    </div>
+                  </div>
+                  <input type="hidden" name="beneficiaryEntity" id="beneficiaryEntity" />
                 </div>
                 <div class="mb-0">
                   <label class="form-label">رقم المنشأة (سجل تجاري/موحد)</label>
-                  <input type="text" class="form-control" name="beneficiaryHrId" placeholder="رقم السجل" />
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                    <input type="text" class="form-control" name="beneficiaryHrId" id="beneficiaryHrId" placeholder="رقم السجل" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -201,7 +280,7 @@
           <div class="card-body">
             <div class="mb-4">
               <label class="form-label">نبذة عن التعاقد</label>
-              <textarea class="form-control" name="contractSummary" rows="3" placeholder="وصف مختصر لطبيعة العمل..."></textarea>
+              <textarea class="form-control" name="contractSummary" rows="3">تعاقد اجير</textarea>
             </div>
             <div class="mb-4">
               <label class="form-label mb-2">نوع التصريح</label>
@@ -216,11 +295,11 @@
             <div class="row g-4 mb-4">
               <div class="col-6">
                 <label class="form-label">تاريخ البداية</label>
-                <input type="date" class="form-control" name="startDate" />
+                <input type="date" class="form-control" name="startDate" id="startDate" />
               </div>
               <div class="col-6">
                 <label class="form-label">تاريخ النهاية</label>
-                <input type="date" class="form-control" name="endDate" />
+                <input type="date" class="form-control" name="endDate" id="endDate" />
               </div>
             </div>
 
@@ -228,8 +307,23 @@
               <label class="form-label">مواقع العمل</label>
               <div class="input-group">
                 <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
-                <input type="text" class="form-control" name="workLocations" placeholder="الرياض، جدة، ..." />
+                <select class="form-select" id="workLocationsSelect" name="workLocationsSelect">
+                  <option value="">اختر موقع العمل...</option>
+                  <option value="الرياض">الرياض</option>
+                  <option value="المدينة المنورة">المدينة المنورة</option>
+                  <option value="تبوك">تبوك</option>
+                  <option value="الدمام">الدمام</option>
+                  <option value="الجبيل">الجبيل</option>
+                  <option value="أخرى">أخرى</option>
+                </select>
               </div>
+              <div id="workLocationsCustomWrapper" class="mt-2 d-none">
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-pencil"></i></span>
+                  <input type="text" class="form-control" id="workLocationsCustom" name="workLocationsCustom" placeholder="اكتب موقع العمل هنا..." />
+                </div>
+              </div>
+              <input type="hidden" name="workLocations" id="workLocations" />
             </div>
           </div>
         </div>
@@ -251,9 +345,8 @@
       </form>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/shared/js/config.js"></script>
-    <script src="/shared/js/supabase-config.js"></script>
+    <script src="/shared/js/mongo-client.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="/shared/js/auth.js"></script>

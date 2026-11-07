@@ -1,33 +1,24 @@
-function getRealisticBirthDate(idNumber) {
-  if (!idNumber) return "1992-05-14";
-  const digits = String(idNumber).replace(/\D/g, "");
-  let sum = 0;
-  for (let i = 0; i < digits.length; i++) {
-    sum = (sum * 31 + digits.charCodeAt(i)) % 100000;
-  }
-  const year = 1982 + (sum % 18);
-  const month = String(1 + ((sum >> 3) % 12)).padStart(2, "0");
-  const day = String(1 + ((sum >> 5) % 28)).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 document.addEventListener("DOMContentLoaded", async function () {
   const params = new URLSearchParams(window.location.search);
 
   let dataParam = params.get("data");
   let contractId = params.get("id");
+  let usingLocalCopy = false;
   if (contractId) {
     try {
       let contract = null;
-      if (typeof supabaseClient !== "undefined" && supabaseClient) {
-        const { data, error } = await supabaseClient
-          .from("contracts")
-          .select("*")
-          .eq("id", contractId)
-          .single();
-        if (!error && data) {
-          contract = data;
+      let lookupFailed = false;
+      try {
+        if (typeof mongoClient !== "undefined" && mongoClient.getContract) {
+          contract = await mongoClient.getContract(contractId);
+        } else {
+          const res = await fetch('/api/contracts/' + encodeURIComponent(contractId));
+          if (res.ok) contract = await res.json();
+          else if (res.status !== 404) lookupFailed = true;
         }
+      } catch (error) {
+        lookupFailed = true;
+        console.error("Error fetching contract:", error);
       }
 
       let localContract = null;
@@ -47,6 +38,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       }
 
       if (!contract && localContract) {
+        usingLocalCopy = lookupFailed;
         contract = {
           id: localContract.id,
           contract_number: localContract.contractNumber || localContract.contract_number,
@@ -62,13 +54,14 @@ document.addEventListener("DOMContentLoaded", async function () {
           provider_hr_id: localContract.providerHrId || localContract.provider_hr_id,
           start_date: localContract.startDate || localContract.start_date,
           end_date: localContract.endDate || localContract.end_date,
+          blocked_reason: localContract.blockedReason || localContract.blocked_reason,
           is_blocked: localContract.isBlocked || localContract.is_blocked
         };
       }
 
       if (!contract) {
         console.error("Contract not found:", contractId);
-        showError();
+        showError(lookupFailed ? "خدمة التحقق غير متاحة حاليًا. حاول مرة أخرى لاحقًا." : undefined);
         return;
       }
 
@@ -77,7 +70,10 @@ document.addEventListener("DOMContentLoaded", async function () {
       const end = contract.end_date ? new Date(contract.end_date) : null;
       const isExpired = end ? end < today : false;
 
-      if (contract.is_blocked || isExpired) {
+      const blockedReason = contract.blocked_reason || contract.blockedReason;
+      const isManuallyBlocked = (contract.is_blocked || contract.isBlocked)
+        && !(isExpired && blockedReason === "انتهاء مدة العقد");
+      if (isManuallyBlocked && !usingLocalCopy) {
         window.location.href = `/ajeer/blocked.html?id=${contractId}`;
         return;
       }
@@ -93,26 +89,16 @@ document.addEventListener("DOMContentLoaded", async function () {
       const dobFromParam = params.get("dob") || params.get("birth_date") || params.get("birthDate");
       const genderFromParam = params.get("gender") || params.get("sex");
 
-      let birthDateVal =
+      const birthDateVal =
         dobFromParam ||
         contract.birth_date ||
         contract.birthDate ||
         (localContract ? (localContract.birthDate || localContract.birth_date) : "");
 
-      if (!birthDateVal || String(birthDateVal).trim() === "" || birthDateVal === "-") {
-        birthDateVal = getRealisticBirthDate(
-          contract.worker_id_number || (localContract ? localContract.workerIdNumber : "")
-        );
-      }
-
-      let genderVal =
+      const genderVal =
         genderFromParam ||
         contract.gender ||
         (localContract ? localContract.gender : "");
-
-      if (!genderVal || String(genderVal).trim() === "" || genderVal === "-") {
-        genderVal = "ذكر";
-      }
 
       dataParam = JSON.stringify({
         add_number: permitNum,
@@ -127,7 +113,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         gender: genderVal,
         provider_hr_id: contract.provider_hr_id,
         provider_entity: contract.provider_entity,
-        status: contract.is_blocked ? "موقوف" : "ساري",
+        status: isExpired ? "expired" : "valid",
       });
     } catch (error) {
       console.error("Error loading contract:", error);
@@ -144,8 +130,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
   }
 
-  console.log("URL:", window.location.href);
-  console.log("DATA:", dataParam);
 
   if (!dataParam) {
     showError();
@@ -161,11 +145,9 @@ document.addEventListener("DOMContentLoaded", async function () {
       decoded = dataParam;
     }
 
-    console.log("DECODED DATA:", decoded);
 
     const data = JSON.parse(decoded);
 
-    console.log("PARSED DATA:", data);
 
     setValue(
       "permitNumber",
@@ -175,8 +157,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         data.number
     );
 
-    // ثابت "تصريح إعارة أجير"
-    setValue("permitType", "تصريح إعارة أجير");
+    setValue("permitType", data.permit_type ?? data.contract_type);
 
     setValue("issueDate", data.issue_date);
 
@@ -190,27 +171,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     setValue("occupation", data.occupation ?? data.worker_profession);
 
-    // حقل الجنس: يرجع نوع الجنس ولا يرجع شرطة أبداً
-    const rawGender = data.gender || params.get("gender");
-    const finalGender =
-      rawGender && String(rawGender).trim() !== "" && rawGender !== "-"
-        ? rawGender
-        : "ذكر";
-    setValue("gender", finalGender);
-
-    // تاريخ الميلاد: يرجع تاريخ الميلاد المحفوظ أو الواقعي ولا يرجع شرطة أبداً
-    let finalBirthDate =
-      data.birth_date || params.get("dob") || params.get("birth_date");
-    if (
-      !finalBirthDate ||
-      String(finalBirthDate).trim() === "" ||
-      finalBirthDate === "-"
-    ) {
-      finalBirthDate = getRealisticBirthDate(
-        data.id_number || data.worker_id_number || params.get("id")
-      );
-    }
-    setValue("birthDate", finalBirthDate);
+    setValue("gender", data.gender);
+    setValue("birthDate", data.birth_date);
 
     setValue(
       "providerHrId",
@@ -222,18 +184,23 @@ document.addEventListener("DOMContentLoaded", async function () {
       data.provider_entity ?? data.provider_name
     );
 
-    updateStatus(data.status);
+    if (usingLocalCopy) {
+      setValue("statusBadge", "غير مؤكد");
+      setValue("statusMessage", "تم عرض النسخة المحفوظة على هذا الجهاز. خدمة التحقق غير متاحة حاليًا.");
+    } else {
+      updateStatus(data.status);
+    }
 
     const loading = document.getElementById("loading");
 
     if (loading) {
-      loading.style.display = "none";
+      loading.hidden = true;
     }
 
     const content = document.getElementById("verificationContent");
 
     if (content) {
-      content.style.display = "block";
+      content.hidden = false;
     }
   } catch (error) {
     console.error("Verification error:", error);
@@ -262,41 +229,16 @@ function setValue(id, value) {
 }
 
 function updateStatus(status) {
-  const title = document.getElementById(
-    "statusTitle"
-  );
-
-  const badge = document.getElementById(
-    "statusBadge"
-  );
-
-  if (!title || !badge) {
-    return;
-  }
-
-  if (
-    status === "منتهي" ||
-    status === "expired"
-  ) {
-    title.textContent = "منتهي";
-    badge.style.color = "#c4322d";
-    return;
-  }
-
-  if (
-    status === "موقوف" ||
-    status === "blocked"
-  ) {
-    title.textContent = "موقوف";
-    badge.style.color = "#c4322d";
-    return;
-  }
-
-  title.textContent = "ساري / فعال";
-  badge.style.color = "";
+  const expired = status === "expired" || status === "منتهي";
+  const blocked = status === "blocked" || status === "موقوف";
+  document.getElementById("statusBadge").textContent = expired ? "منتهي" : blocked ? "موقوف" : "ساري / فعال";
+  document.getElementById("statusBadge").classList.add("verification-result--" + (expired || blocked ? "expired" : "valid"));
+  document.getElementById("statusMessage").textContent = expired
+    ? "انتهت صلاحية هذا التصريح ولا يمكن استخدامه"
+    : blocked ? "هذا التصريح موقوف" : "تم التحقق من التصريح بنجاح";
 }
 
-function showError() {
+function showError(message) {
   const loading = document.getElementById(
     "loading"
   );
@@ -310,259 +252,15 @@ function showError() {
   );
 
   if (loading) {
-    loading.style.display = "none";
+    loading.hidden = true;
   }
 
   if (content) {
-    content.style.display = "none";
+    content.hidden = true;
   }
 
   if (error) {
-    error.style.display = "block";
+    if (message) error.textContent = message;
+    error.hidden = false;
   }
 }
-
-const chatWidget = document.getElementById("chatWidget");
-const messageList = document.getElementById("messageList");
-
-const chatInput = document.getElementById("chatInput");
-const sendBtn = document.getElementById("sendBtn");
-
-const attachmentBtn = document.getElementById("attachmentBtn");
-const fileInput = document.getElementById("fileInput");
-
-const minimizeBtn = document.getElementById("minimizeBtn");
-const closeBtn = document.getElementById("closeBtn");
-const homeBtn = document.getElementById("homeBtn");
-
-const botLauncher = document.getElementById("botLauncher");
-
-const carouselTrack = document.getElementById("carouselTrack");
-const prevBtn = document.getElementById("prevBtn");
-const nextBtn = document.getElementById("nextBtn");
-
-const dots = document.querySelectorAll(".dot");
-const serviceButtons = document.querySelectorAll(".service-button");
-
-botLauncher.addEventListener("click", () => {
-  chatWidget.classList.add("show");
-
-  botLauncher.style.display = "none";
-});
-
-const cards = document.querySelectorAll(".service-card-wrapper");
-
-const cardsPerPage = 2;
-
-const totalPages = Math.ceil(cards.length / cardsPerPage);
-
-let currentPage = 0;
-
-const cardWidth = 155;
-
-function updateCarousel() {
-  const maxPage = totalPages - 1;
-
-  if (currentPage < 0) {
-    currentPage = 0;
-  }
-
-  if (currentPage > maxPage) {
-    currentPage = maxPage;
-  }
-
-  const moveX = currentPage * cardWidth * cardsPerPage;
-
-  carouselTrack.style.transform =
-    `translate3d(-${moveX}px, 0, 0)`;
-
-  dots.forEach((dot, index) => {
-    dot.classList.toggle("active", index === currentPage);
-  });
-
-  prevBtn.disabled = currentPage === 0;
-
-  nextBtn.disabled = currentPage === maxPage;
-}
-
-nextBtn.addEventListener("click", () => {
-  if (currentPage < totalPages - 1) {
-    currentPage++;
-    updateCarousel();
-  }
-});
-
-prevBtn.addEventListener("click", () => {
-  if (currentPage > 0) {
-    currentPage--;
-    updateCarousel();
-  }
-});
-
-serviceButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const serviceName = button.dataset.service;
-
-    addUserMessage(serviceName);
-
-    setTimeout(() => {
-      addBotMessage(
-        `تم اختيار خدمة "${serviceName}". كيف يمكنني مساعدتك؟`,
-      );
-    }, 500);
-  });
-});
-
-function addUserMessage(text) {
-  const wrapper = document.createElement("div");
-
-  wrapper.className = "user-message-wrapper";
-
-  const message = document.createElement("div");
-
-  message.className = "user-message";
-
-  message.textContent = text;
-
-  wrapper.appendChild(message);
-
-  messageList.appendChild(wrapper);
-
-  scrollToBottom();
-}
-
-function addBotMessage(text) {
-  const wrapper = document.createElement("div");
-
-  wrapper.className = "message-wrapper";
-
-  const message = document.createElement("div");
-
-  message.className = "bot-message";
-
-  message.textContent = text;
-
-  const meta = document.createElement("div");
-
-  meta.className = "message-meta";
-
-  meta.innerHTML =
-    `<span>${getCurrentTime()}</span> - <span>bot</span>`;
-
-  wrapper.appendChild(message);
-
-  wrapper.appendChild(meta);
-
-  messageList.appendChild(wrapper);
-
-  scrollToBottom();
-}
-
-function getCurrentTime() {
-  const now = new Date();
-
-  let hours = now.getHours();
-
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-
-  const period = hours >= 12 ? "م" : "ص";
-
-  hours = hours % 12 || 12;
-
-  return `${String(hours).padStart(2, "0")}:${minutes} ${period}`;
-}
-
-function sendMessage() {
-  const text = chatInput.value.trim();
-
-  if (!text) {
-    return;
-  }
-
-  addUserMessage(text);
-
-  chatInput.value = "";
-
-  autoResize();
-
-  setTimeout(() => {
-    addBotMessage(
-      "شكرًا لتواصلك مع أجير. سيتم مساعدتك في أقرب وقت."
-    );
-  }, 700);
-}
-
-sendBtn.addEventListener("click", sendMessage);
-
-chatInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-
-    sendMessage();
-  }
-});
-
-function autoResize() {
-  chatInput.style.height = "28px";
-
-  chatInput.style.height =
-    Math.min(chatInput.scrollHeight, 100) + "px";
-}
-
-chatInput.addEventListener("input", autoResize);
-
-attachmentBtn.addEventListener("click", () => {
-  fileInput.click();
-});
-
-fileInput.addEventListener("change", () => {
-  if (!fileInput.files.length) {
-    return;
-  }
-
-  const file = fileInput.files[0];
-
-  addUserMessage(`📎 ${file.name}`);
-
-  setTimeout(() => {
-    addBotMessage("تم استلام الملف بنجاح.");
-  }, 500);
-});
-
-minimizeBtn.addEventListener("click", () => {
-  chatWidget.classList.toggle("minimized");
-});
-
-closeBtn.addEventListener("click", () => {
-  chatWidget.classList.remove("show");
-
-  botLauncher.style.display = "";
-});
-
-homeBtn.addEventListener("click", () => {
-  chatWidget.classList.remove("minimized");
-
-  messageList.scrollTop = 0;
-
-  currentPage = 0;
-
-  updateCarousel();
-});
-
-const moreBtn = document.getElementById("moreBtn");
-
-if (moreBtn) {
-  moreBtn.addEventListener("click", () => {
-    addBotMessage(
-      "يمكنك اختيار إحدى الخدمات المتاحة أو كتابة استفسارك مباشرة.",
-    );
-  });
-}
-
-function scrollToBottom() {
-  setTimeout(() => {
-    messageList.scrollTop = messageList.scrollHeight;
-  }, 50);
-}
-
-updateCarousel();

@@ -19,12 +19,12 @@ try {
 const config = {
     SUPABASE_URL: process.env.SUPABASE_URL || 'https://muqhdaktjljnptruanox.supabase.co',
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || 'sb_publishable_n-xcjOpXTq7nmKZAdHjE5g_4jnKHRev',
-    MASTER_KEY: process.env.MASTER_KEY || '',
     PRODUCTION_URL: process.env.PRODUCTION_URL || '',
     OLD_DOMAIN_1: process.env.OLD_DOMAIN_1 || '',
     OLD_DOMAIN_2: process.env.OLD_DOMAIN_2 || '',
     OFFICIAL_PORTAL_URL: process.env.OFFICIAL_PORTAL_URL || 'https://ajeer.com.sa',
-    isSupabaseEnabled: true
+    isSupabaseEnabled: false,
+    isMongoEnabled: true
 };
 
 if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {

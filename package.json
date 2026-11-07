@@ -4,5 +4,8 @@
   "scripts": {
     "start": "node generate-config.js && node server.js",
     "postinstall": "node generate-config.js"
+  },
+  "dependencies": {
+    "mongodb": "^7.7.0"
   }
 }

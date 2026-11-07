@@ -1,3 +1,10 @@
+// Escape untrusted values only at HTML rendering boundaries.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const contractId = urlParams.get("id");
@@ -49,23 +56,23 @@ function renderVerification(container, contract) {
           <div class="card-content">
               <div class="data-row">
                   <span class="label">اسم الموظف</span>
-                  <span class="value">${contract.workerName || "-"}</span>
+                  <span class="value">${escapeHtml(contract.workerName || "-")}</span>
               </div>
               <div class="data-row">
                   <span class="label">رقم الهوية / الإقامة</span>
-                  <span class="value">${contract.workerIdNumber || "-"}</span>
+                  <span class="value">${escapeHtml(contract.workerIdNumber || "-")}</span>
               </div>
               <div class="data-row">
                   <span class="label">المهنة</span>
-                  <span class="value">${contract.workerProfession || "-"}</span>
+                  <span class="value">${escapeHtml(contract.workerProfession || "-")}</span>
               </div>
               <div class="data-row">
                   <span class="label">تاريخ بداية التصريح</span>
-                  <span class="value">${formatDate(contract.startDate)}</span>
+                  <span class="value">${escapeHtml(formatDate(contract.startDate))}</span>
               </div>
               <div class="data-row">
                   <span class="label">تاريخ انتهاء التصريح</span>
-                  <span class="value">${formatDate(contract.endDate)}</span>
+                  <span class="value">${escapeHtml(formatDate(contract.endDate))}</span>
               </div>
           </div>
       </div>
@@ -77,11 +84,11 @@ function renderVerification(container, contract) {
           <div class="card-content">
               <div class="data-row">
                   <span class="label">اسم المنشأة</span>
-                  <span class="value">${contract.beneficiaryEntity || "-"}</span>
+                  <span class="value">${escapeHtml(contract.beneficiaryEntity || "-")}</span>
               </div>
               <div class="data-row">
                   <span class="label">رقم المنشأة</span>
-                  <span class="value">${contract.beneficiaryHrId || "-"}</span>
+                  <span class="value">${escapeHtml(contract.beneficiaryHrId || "-")}</span>
               </div>
           </div>
       </div>
@@ -93,11 +100,11 @@ function renderVerification(container, contract) {
           <div class="card-content">
               <div class="data-row">
                   <span class="label">اسم المنشأة</span>
-                  <span class="value">${contract.providerEntity || "-"}</span>
+                  <span class="value">${escapeHtml(contract.providerEntity || "-")}</span>
               </div>
               <div class="data-row">
                   <span class="label">رقم المنشأة</span>
-                  <span class="value">${contract.providerHrId || "-"}</span>
+                  <span class="value">${escapeHtml(contract.providerHrId || "-")}</span>
               </div>
           </div>
       </div>
@@ -119,7 +126,7 @@ function renderError(container, message) {
           <div class="card-content">
               <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
               <h4 class="mt-3 fw-bold text-slate-800">تعذر التحقق من البيانات</h4>
-              <p class="text-muted mt-2">${message}</p>
+              <p class="text-muted mt-2">${escapeHtml(message)}</p>
           </div>
       </div>
     </div>
