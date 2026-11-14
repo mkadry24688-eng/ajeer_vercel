@@ -613,11 +613,11 @@ if (typeof module !== 'undefined' && typeof require !== 'undefined' && require.m
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = {
-        server,
-        signSession,
-        verifySession,
-        parseCookies,
-        PROTECTED_FILES
-    };
+    server.server = server;
+    server.signSession = signSession;
+    server.verifySession = verifySession;
+    server.parseCookies = parseCookies;
+    server.PROTECTED_FILES = PROTECTED_FILES;
+
+    module.exports = server;
 }
