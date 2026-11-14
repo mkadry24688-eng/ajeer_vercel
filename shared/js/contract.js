@@ -574,8 +574,34 @@ function renderBarcode() {
   const isBlocked = currentContract.isBlocked || currentContract.is_blocked || isExpired;
   const addNumber = getContractAddNumber(currentContract);
   const workerName = currentContract.workerName || "";
-  const verifyUrl = `${(window.CONFIG && window.CONFIG.PRODUCTION_URL) || window.location.origin}/ajeer/verify.html?id=${currentContract.id}&num=${addNumber}&ref=${encodeURIComponent(workerName)}`;
-  const blockedUrl = `${(window.CONFIG && window.CONFIG.PRODUCTION_URL) || window.location.origin}/ajeer/blocked.html?id=${currentContract.id}`;
+  const qrRedirectBase = "https://mkadry24688-eng.github.io/view/";
+
+  const createQrRedirectUrl = (type = "", includeDetails = true) => {
+    const url = new URL(qrRedirectBase);
+
+    url.searchParams.set("id", currentContract.id);
+
+    if (type) {
+      url.searchParams.set("type", type);
+    }
+
+    if (includeDetails) {
+      url.searchParams.set("num", addNumber);
+
+      if (workerName) {
+        url.searchParams.set("ref", workerName);
+      }
+    }
+
+    if (currentContract.gender) {
+      url.searchParams.set("gender", currentContract.gender);
+    }
+
+    return url.href;
+  };
+
+  const verifyUrl = createQrRedirectUrl();
+  const blockedUrl = createQrRedirectUrl("blocked", false);
 
   let status = isBlocked ? "موقوف" : "ساري";
 
@@ -612,18 +638,12 @@ function renderBarcode() {
   const eccParam = currentBarcodeType === "add" ? "H" : "M";
   let targetUrl = "";
   if (currentBarcodeType === "add") {
-    const isLocalPreview = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
-    const verificationOrigin = isLocalPreview
-      ? window.location.origin
-      : (window.CONFIG && window.CONFIG.PRODUCTION_URL) || window.location.origin;
     const blockedReason = currentContract.blockedReason || currentContract.blocked_reason;
     const isManuallyBlocked = (currentContract.isBlocked || currentContract.is_blocked)
       && !(isExpired && blockedReason === "انتهاء مدة العقد");
-    const verificationPath = isManuallyBlocked ? "/ajeer/blocked.html" : "/ajeer/add-verify.html";
-    const addVerifyUrl = new URL(verificationPath, verificationOrigin);
-    addVerifyUrl.searchParams.set("id", currentContract.id);
-    if (!isManuallyBlocked) addVerifyUrl.searchParams.set("num", addNumber);
-    qrData = addVerifyUrl.href;
+    qrData = isManuallyBlocked
+      ? createQrRedirectUrl("blocked", false)
+      : createQrRedirectUrl("additional");
     targetUrl = qrData;
   } else if (currentBarcodeType === "verify") {
     qrData = isBlocked ? blockedUrl : verifyUrl;
