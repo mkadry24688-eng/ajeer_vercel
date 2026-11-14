@@ -34,9 +34,11 @@ try {
 }
 
 const PORT = Number(process.env.PORT || 3010);
-const AUTH_SECRET = process.env.AUTH_SECRET || process.env.SUPABASE_ANON_KEY || 'ajeer-portal-secret-key-3010';
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://muqhdaktjljnptruanox.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_n-xcjOpXTq7nmKZAdHjE5g_4jnKHRev';
+const AUTH_SECRET = process.env.AUTH_SECRET;
+
+if (!AUTH_SECRET) {
+    throw new Error('AUTH_SECRET is required');
+}
 
 const ROUTE_MAPS = {
     '/': '/index.html',
@@ -295,7 +297,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Contracts & MongoDB API endpoints
+    // Contracts API endpoints backed by Supabase
     if (pathname === '/api/contracts' || pathname.startsWith('/api/contracts/')) {
         if (!db) {
             res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -455,7 +457,7 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({
                 status: 'connected',
-                database: 'mongodb',
+                database: 'supabase',
                 contractsCount: list.length
             }));
         } catch (err) {
@@ -602,7 +604,7 @@ if (typeof module !== 'undefined' && typeof require !== 'undefined' && require.m
         db.connectDB().then(() => {
             return db.migrateFromSupabaseIfNeeded();
         }).catch(err => {
-            console.error('[Startup] MongoDB initialization error:', err.message);
+            console.error('[Startup] Supabase initialization error:', err.message);
         });
     }
     server.listen(PORT, '0.0.0.0', () => {

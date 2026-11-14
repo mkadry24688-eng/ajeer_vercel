@@ -12,19 +12,19 @@ try {
             }
         });
     }
-} catch (e) {
+} catch (error) {
     console.log('No local .env file found, using system environment variables.');
 }
 
 const config = {
-    SUPABASE_URL: process.env.SUPABASE_URL || 'https://muqhdaktjljnptruanox.supabase.co',
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || 'sb_publishable_n-xcjOpXTq7nmKZAdHjE5g_4jnKHRev',
+    SUPABASE_URL: process.env.SUPABASE_URL || '',
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
     PRODUCTION_URL: process.env.PRODUCTION_URL || '',
     OLD_DOMAIN_1: process.env.OLD_DOMAIN_1 || '',
     OLD_DOMAIN_2: process.env.OLD_DOMAIN_2 || '',
     OFFICIAL_PORTAL_URL: process.env.OFFICIAL_PORTAL_URL || 'https://ajeer.com.sa',
-    isSupabaseEnabled: false,
-    isMongoEnabled: true
+    isSupabaseEnabled: true,
+    isMongoEnabled: false
 };
 
 if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
@@ -32,7 +32,6 @@ if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
 }
 
 const jsContent = `window.CONFIG = ${JSON.stringify(config, null, 4)};\n`;
-
 const targetDir = path.join(__dirname, 'shared', 'js');
 if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 fs.writeFileSync(path.join(targetDir, 'config.js'), jsContent);
@@ -42,12 +41,10 @@ try {
     const templatePath = path.join(__dirname, 'vercel.json.template');
     if (fs.existsSync(templatePath)) {
         let template = fs.readFileSync(templatePath, 'utf8');
-
         Object.keys(config).forEach(key => {
             const regex = new RegExp(`{{${key}}}`, 'g');
             template = template.replace(regex, config[key]);
         });
-
         fs.writeFileSync(path.join(__dirname, 'vercel.json'), template);
         console.log('vercel.json updated from template.');
     }

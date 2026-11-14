@@ -1,588 +1,329 @@
-const { MongoClient } = require('mongodb');
 const crypto = require('crypto');
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ajeer_db';
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'ajeer_db';
+const SUPABASE_URL = String(process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || process.env.SUPABASE_ANON_KEY
+    || '';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://muqhdaktjljnptruanox.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_n-xcjOpXTq7nmKZAdHjE5g_4jnKHRev';
+let connected = false;
 
-let client = null;
-let db = null;
-let isConnecting = false;
-let connectPromise = null;
+function requireConfig() {
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+        throw new Error('SUPABASE_URL and a Supabase API key are required');
+    }
+}
 
-async function connectDB() {
-    if (db) return db;
-    if (isConnecting && connectPromise) return connectPromise;
+function apiHeaders(prefer = '') {
+    const headers = {
+        apikey: SUPABASE_KEY,
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+    };
+    if (!SUPABASE_KEY.startsWith('sb_')) {
+        headers.Authorization = `Bearer ${SUPABASE_KEY}`;
+    }
+    if (prefer) headers.Prefer = prefer;
+    return headers;
+}
 
-    isConnecting = true;
-    connectPromise = (async () => {
+async function supabaseRequest(table, options = {}) {
+    requireConfig();
+    const query = options.query ? `?${options.query}` : '';
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+        method: options.method || 'GET',
+        headers: apiHeaders(options.prefer || ''),
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    });
+
+    const text = await response.text();
+    let payload = null;
+    if (text) {
         try {
-            client = new MongoClient(MONGODB_URI, {
-                serverSelectionTimeoutMS: 5000,
-                connectTimeoutMS: 10000,
-            });
-            await client.connect();
-            db = client.db(MONGODB_DB_NAME);
-            console.log(`[MongoDB] Connected successfully to database: ${MONGODB_DB_NAME}`);
-
-            await initIndexes();
-            return db;
-        } catch (err) {
-            console.error('[MongoDB] Connection error:', err.message);
-            throw err;
-        } finally {
-            isConnecting = false;
+            payload = JSON.parse(text);
+        } catch {
+            payload = text;
         }
-    })();
-
-    return connectPromise;
-}
-
-function getDB() {
-    return db;
-}
-
-async function initIndexes() {
-    if (!db) return;
-    try {
-        const contractsCol = db.collection('contracts');
-        await contractsCol.createIndex({ id: 1 }, { unique: true });
-        await contractsCol.createIndex({ contract_number: 1 });
-        await contractsCol.createIndex({ created_at: -1 });
-
-        const usersCol = db.collection('users');
-        await usersCol.createIndex({ username: 1 }, { unique: true });
-
-        console.log('[MongoDB] Indexes verified successfully.');
-    } catch (err) {
-        console.warn('[MongoDB] Index creation warning:', err.message);
     }
-}
 
-function pickField(c, camelKey, snakeKey, defaultVal = '') {
-    if (c[camelKey] !== undefined && c[snakeKey] !== undefined) {
-        if (c[camelKey] !== c[snakeKey]) {
-            return c[camelKey];
-        }
-        return c[camelKey];
+    if (!response.ok) {
+        const detail = payload && typeof payload === 'object'
+            ? payload.message || payload.details || payload.hint || JSON.stringify(payload)
+            : String(payload || response.statusText);
+        throw new Error(`Supabase ${response.status}: ${detail}`);
     }
-    if (c[camelKey] !== undefined) return c[camelKey];
-    if (c[snakeKey] !== undefined) return c[snakeKey];
-    return defaultVal;
+    return payload;
 }
 
-function normalizeContract(c) {
-    if (!c) return null;
+function pickField(contract, camelKey, snakeKey, defaultValue = '') {
+    if (contract[camelKey] !== undefined) return contract[camelKey];
+    if (contract[snakeKey] !== undefined) return contract[snakeKey];
+    return defaultValue;
+}
 
-    // Strictly preserve original ID from Supabase (c.id) or MongoDB (c._id)
-    const rawId = (c.id !== undefined && c.id !== null && String(c.id).trim() !== '')
-        ? String(c.id).trim()
-        : ((c._id !== undefined && c._id !== null && String(c._id).trim() !== '')
-            ? String(c._id).trim()
-            : crypto.randomUUID());
-    const id = rawId;
-    const contractType = pickField(c, 'contractType', 'contract_type', 'تعاقد أجير') || 'تعاقد أجير';
-    const contractNumber = pickField(c, 'contractNumber', 'contract_number', '');
-    const addNumber = pickField(c, 'addNumber', 'add_number', (contractNumber ? 'TW' + String(contractNumber).replace(/\D/g, '') : ''));
+function normalizeContract(contract) {
+    if (!contract) return null;
 
-    const workerName = pickField(c, 'workerName', 'worker_name', '');
-    const workerProfession = pickField(c, 'workerProfession', 'worker_profession', '');
-    const workerIdNumber = pickField(c, 'workerIdNumber', 'worker_id_number', '');
-    const workerNationality = pickField(c, 'workerNationality', 'worker_nationality', '');
-    const birthDate = pickField(c, 'birthDate', 'birth_date', '');
-    const permitType = pickField(c, 'permitType', 'permit_type', '');
-    const providerEntity = pickField(c, 'providerEntity', 'provider_entity', '');
-    const providerHrId = pickField(c, 'providerHrId', 'provider_hr_id', '');
-    const beneficiaryEntity = pickField(c, 'beneficiaryEntity', 'beneficiary_entity', '');
-    const beneficiaryHrId = pickField(c, 'beneficiaryHrId', 'beneficiary_hr_id', '');
-    const contractSummary = pickField(c, 'contractSummary', 'contract_summary', '');
-    const startDate = pickField(c, 'startDate', 'start_date', '');
-    const endDate = pickField(c, 'endDate', 'end_date', '');
-    const workLocations = pickField(c, 'workLocations', 'work_locations', '');
+    const id = String(contract.id || contract._id || crypto.randomUUID()).trim();
+    const contractNumber = pickField(contract, 'contractNumber', 'contract_number', '');
+    const addNumber = pickField(
+        contract,
+        'addNumber',
+        'add_number',
+        contractNumber ? `TW${String(contractNumber).replace(/\D/g, '')}` : ''
+    );
+    const endDate = pickField(contract, 'endDate', 'end_date', '');
 
-    const isBlocked = (() => {
-        if (c.isBlocked !== undefined && c.is_blocked !== undefined) {
-            if (c.isBlocked !== c.is_blocked) return !!c.isBlocked;
-            return !!c.isBlocked;
-        }
-        if (c.isBlocked !== undefined) return !!c.isBlocked;
-        if (c.is_blocked !== undefined) return !!c.is_blocked;
-        if (endDate) {
-            const end = new Date(endDate);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            if (end < today) return true;
-        }
-        return false;
-    })();
+    let isBlocked = Boolean(pickField(contract, 'isBlocked', 'is_blocked', false));
+    if (!isBlocked && endDate) {
+        const end = new Date(endDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (!Number.isNaN(end.getTime()) && end < today) isBlocked = true;
+    }
 
-    const blockedReason = (() => {
-        if (c.blockedReason !== undefined && c.blocked_reason !== undefined) {
-            if (c.blockedReason !== c.blocked_reason) return c.blockedReason;
-            return c.blockedReason;
-        }
-        if (c.blockedReason !== undefined) return c.blockedReason;
-        if (c.blocked_reason !== undefined) return c.blocked_reason;
-        if (isBlocked && endDate) {
-            const end = new Date(endDate);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            if (end < today) return 'انتهاء مدة العقد';
-        }
-        return null;
-    })();
+    let blockedReason = pickField(contract, 'blockedReason', 'blocked_reason', null);
+    if (!blockedReason && isBlocked && endDate) {
+        const end = new Date(endDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (!Number.isNaN(end.getTime()) && end < today) blockedReason = 'انتهاء مدة العقد';
+    }
 
     return {
-        _id: String(id),
-        id: String(id),
-        contract_type: contractType,
-        contractType: contractType,
+        _id: id,
+        id,
+        contract_type: pickField(contract, 'contractType', 'contract_type', 'تعاقد أجير'),
+        contractType: pickField(contract, 'contractType', 'contract_type', 'تعاقد أجير'),
         contract_number: contractNumber,
-        contractNumber: contractNumber,
+        contractNumber,
         add_number: addNumber,
-        addNumber: addNumber,
-        worker_name: workerName,
-        workerName: workerName,
-        worker_profession: workerProfession,
-        workerProfession: workerProfession,
-        worker_id_number: workerIdNumber,
-        workerIdNumber: workerIdNumber,
-        worker_nationality: workerNationality,
-        workerNationality: workerNationality,
-        birth_date: birthDate,
-        birthDate: birthDate,
-        gender: c.gender || '',
-        permit_type: permitType,
-        permitType: permitType,
-        provider_entity: providerEntity,
-        providerEntity: providerEntity,
-        provider_hr_id: providerHrId,
-        providerHrId: providerHrId,
-        beneficiary_entity: beneficiaryEntity,
-        beneficiaryEntity: beneficiaryEntity,
-        beneficiary_hr_id: beneficiaryHrId,
-        beneficiaryHrId: beneficiaryHrId,
-        contract_summary: contractSummary,
-        contractSummary: contractSummary,
-        start_date: startDate,
-        startDate: startDate,
+        addNumber,
+        worker_name: pickField(contract, 'workerName', 'worker_name', ''),
+        workerName: pickField(contract, 'workerName', 'worker_name', ''),
+        worker_profession: pickField(contract, 'workerProfession', 'worker_profession', ''),
+        workerProfession: pickField(contract, 'workerProfession', 'worker_profession', ''),
+        worker_id_number: pickField(contract, 'workerIdNumber', 'worker_id_number', ''),
+        workerIdNumber: pickField(contract, 'workerIdNumber', 'worker_id_number', ''),
+        worker_nationality: pickField(contract, 'workerNationality', 'worker_nationality', ''),
+        workerNationality: pickField(contract, 'workerNationality', 'worker_nationality', ''),
+        birth_date: pickField(contract, 'birthDate', 'birth_date', ''),
+        birthDate: pickField(contract, 'birthDate', 'birth_date', ''),
+        gender: contract.gender || '',
+        permit_type: pickField(contract, 'permitType', 'permit_type', ''),
+        permitType: pickField(contract, 'permitType', 'permit_type', ''),
+        provider_entity: pickField(contract, 'providerEntity', 'provider_entity', ''),
+        providerEntity: pickField(contract, 'providerEntity', 'provider_entity', ''),
+        provider_hr_id: pickField(contract, 'providerHrId', 'provider_hr_id', ''),
+        providerHrId: pickField(contract, 'providerHrId', 'provider_hr_id', ''),
+        beneficiary_entity: pickField(contract, 'beneficiaryEntity', 'beneficiary_entity', ''),
+        beneficiaryEntity: pickField(contract, 'beneficiaryEntity', 'beneficiary_entity', ''),
+        beneficiary_hr_id: pickField(contract, 'beneficiaryHrId', 'beneficiary_hr_id', ''),
+        beneficiaryHrId: pickField(contract, 'beneficiaryHrId', 'beneficiary_hr_id', ''),
+        contract_summary: pickField(contract, 'contractSummary', 'contract_summary', ''),
+        contractSummary: pickField(contract, 'contractSummary', 'contract_summary', ''),
+        start_date: pickField(contract, 'startDate', 'start_date', ''),
+        startDate: pickField(contract, 'startDate', 'start_date', ''),
         end_date: endDate,
-        endDate: endDate,
-        work_locations: workLocations,
-        workLocations: workLocations,
+        endDate,
+        work_locations: pickField(contract, 'workLocations', 'work_locations', ''),
+        workLocations: pickField(contract, 'workLocations', 'work_locations', ''),
         is_blocked: isBlocked,
-        isBlocked: isBlocked,
+        isBlocked,
         blocked_reason: blockedReason,
-        blockedReason: blockedReason,
-        created_at: c.created_at || c.createdAt || new Date().toISOString(),
-        createdAt: c.created_at || c.createdAt || new Date().toISOString()
+        blockedReason,
+        created_at: contract.created_at || contract.createdAt || new Date().toISOString(),
+        createdAt: contract.created_at || contract.createdAt || new Date().toISOString()
     };
 }
 
-function generateDiverseDigits(length = 8) {
-    const first = Math.floor(Math.random() * 8) + 2; // 2 to 9
-    let digits = String(first);
-    for (let i = 1; i < length; i++) {
-        digits += Math.floor(Math.random() * 10);
-    }
-    return digits;
+function toDatabaseRecord(contract) {
+    const item = normalizeContract(contract);
+    return {
+        id: item.id,
+        contract_type: item.contract_type,
+        contract_number: item.contract_number || null,
+        add_number: item.add_number || null,
+        worker_name: item.worker_name,
+        worker_profession: item.worker_profession,
+        worker_id_number: item.worker_id_number,
+        worker_nationality: item.worker_nationality,
+        birth_date: item.birth_date || null,
+        gender: item.gender || null,
+        permit_type: item.permit_type || null,
+        provider_entity: item.provider_entity,
+        provider_hr_id: item.provider_hr_id,
+        beneficiary_entity: item.beneficiary_entity,
+        beneficiary_hr_id: item.beneficiary_hr_id,
+        contract_summary: item.contract_summary,
+        start_date: item.start_date,
+        end_date: item.end_date,
+        work_locations: item.work_locations,
+        is_blocked: item.is_blocked,
+        blocked_reason: item.blocked_reason,
+        created_at: item.created_at
+    };
 }
 
-function isDummyZeroNumber(val) {
-    if (!val) return true;
-    const str = String(val).trim();
-    const digits = str.replace(/\D/g, '');
-    if (!digits || digits === '0000001' || digits === '1' || /^0{3,}\d+$/.test(digits) || digits.length < 6) {
-        return true;
-    }
-    return false;
+function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 
-async function getNextContractNumber() {
-    const database = await connectDB();
-    const col = database.collection('contracts');
+function filterQuery(field, value) {
+    const params = new URLSearchParams();
+    params.set('select', '*');
+    params.set(field, `eq.${value}`);
+    params.set('limit', '1');
+    return params.toString();
+}
 
-    for (let attempts = 0; attempts < 10; attempts++) {
-        const candidate = 'TQ' + generateDiverseDigits(8);
-        const exists = await col.findOne({
-            $or: [{ contract_number: candidate }, { contractNumber: candidate }]
-        });
-        if (!exists) return candidate;
-    }
-    return 'TQ' + generateDiverseDigits(8);
+async function connectDB() {
+    await supabaseRequest('contracts', { query: 'select=id&limit=1' });
+    connected = true;
+    console.log('[Supabase] Connected successfully.');
+    return { provider: 'supabase' };
+}
+
+function getDB() {
+    return connected ? { provider: 'supabase' } : null;
+}
+
+async function closeDB() {
+    connected = false;
+}
+
+async function initIndexes() {
+    return true;
 }
 
 async function listContracts() {
-    const database = await connectDB();
-    const docs = await database.collection('contracts')
-        .find({})
-        .sort({ created_at: -1, createdAt: -1 })
-        .toArray();
-
-    return docs.map(normalizeContract);
+    const rows = await supabaseRequest('contracts', { query: 'select=*&order=created_at.desc' });
+    return Array.isArray(rows) ? rows.map(normalizeContract) : [];
 }
 
 async function getContract(id) {
     if (!id) return null;
-    const database = await connectDB();
-    const doc = await database.collection('contracts').findOne({
-        $or: [
-            { id: String(id) },
-            { _id: String(id) },
-            { contract_number: String(id) },
-            { contractNumber: String(id) }
-        ]
-    });
+    const field = isUuid(id) ? 'id' : 'contract_number';
+    const rows = await supabaseRequest('contracts', { query: filterQuery(field, String(id)) });
+    return Array.isArray(rows) && rows.length ? normalizeContract(rows[0]) : null;
+}
 
-    return normalizeContract(doc);
+async function checkContractNumberExists(number) {
+    if (!number) return false;
+    const rows = await supabaseRequest('contracts', {
+        query: filterQuery('contract_number', String(number))
+    });
+    return Array.isArray(rows) && rows.length > 0;
+}
+
+async function checkContractIdExists(id) {
+    if (!id || !isUuid(id)) return false;
+    const rows = await supabaseRequest('contracts', { query: filterQuery('id', String(id)) });
+    return Array.isArray(rows) && rows.length > 0;
+}
+
+function generateDiverseDigits(length = 8) {
+    let digits = String(Math.floor(Math.random() * 8) + 2);
+    while (digits.length < length) digits += Math.floor(Math.random() * 10);
+    return digits;
+}
+
+async function getNextContractNumber() {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        const candidate = `TQ${generateDiverseDigits(8)}`;
+        if (!(await checkContractNumberExists(candidate))) return candidate;
+    }
+    return `TQ${generateDiverseDigits(8)}`;
 }
 
 async function saveContract(contract) {
-    const database = await connectDB();
-    const col = database.collection('contracts');
-
-    let normalized = normalizeContract(contract);
-
-    if (!normalized.id || normalized.id === 'undefined') {
-        normalized.id = crypto.randomUUID();
-        normalized._id = normalized.id;
-    } else {
-        normalized.id = String(normalized.id);
-        normalized._id = normalized.id;
+    const source = { ...contract };
+    const oldId = source.id || source._id;
+    if (source.newId && String(source.newId) !== String(oldId || '')) {
+        if (oldId && isUuid(oldId)) await deleteContract(oldId);
+        source.id = String(source.newId);
+        source._id = source.id;
+    }
+    if (!source.id && !source._id) source.id = crypto.randomUUID();
+    if (!pickField(source, 'contractNumber', 'contract_number', '')) {
+        source.contract_number = await getNextContractNumber();
     }
 
-    if (contract.newId && String(contract.newId) !== normalized.id) {
-        await col.deleteOne({ $or: [{ id: normalized.id }, { _id: normalized.id }] });
-        normalized.id = String(contract.newId);
-        normalized._id = normalized.id;
+    const record = toDatabaseRecord(source);
+    if (!record.add_number) {
+        record.add_number = `TW${String(record.contract_number || '').replace(/\D/g, '')}`;
     }
-
-    if (!normalized.contract_number || isDummyZeroNumber(normalized.contract_number)) {
-        normalized.contract_number = await getNextContractNumber();
-        normalized.contractNumber = normalized.contract_number;
-    }
-
-    if (!normalized.add_number || isDummyZeroNumber(normalized.add_number)) {
-        const digits = normalized.contract_number.replace(/\D/g, '');
-        normalized.add_number = 'TW' + digits;
-        normalized.addNumber = normalized.add_number;
-    }
-
-    await col.updateOne(
-        { $or: [{ id: normalized.id }, { _id: normalized.id }] },
-        { $set: normalized },
-        { upsert: true }
-    );
-
-    return normalized;
+    const rows = await supabaseRequest('contracts', {
+        method: 'POST',
+        query: 'on_conflict=id',
+        prefer: 'resolution=merge-duplicates,return=representation',
+        body: record
+    });
+    return normalizeContract(Array.isArray(rows) && rows.length ? rows[0] : record);
 }
 
 async function deleteContract(id) {
     if (!id) return false;
-    const database = await connectDB();
-    const res = await database.collection('contracts').deleteOne({
-        $or: [
-            { id: String(id) },
-            { _id: String(id) },
-            { contract_number: String(id) }
-        ]
+    const field = isUuid(id) ? 'id' : 'contract_number';
+    const params = new URLSearchParams();
+    params.set(field, `eq.${id}`);
+    await supabaseRequest('contracts', {
+        method: 'DELETE',
+        query: params.toString(),
+        prefer: 'return=minimal'
     });
-    return res.deletedCount > 0;
-}
-
-async function checkContractNumberExists(num) {
-    if (!num) return false;
-    const database = await connectDB();
-    const found = await database.collection('contracts').findOne({
-        $or: [{ contract_number: String(num) }, { contractNumber: String(num) }]
-    });
-    return !!found;
-}
-
-async function checkContractIdExists(id) {
-    if (!id) return false;
-    const database = await connectDB();
-    const found = await database.collection('contracts').findOne({
-        $or: [{ id: String(id) }, { _id: String(id) }]
-    }, { projection: { _id: 1, id: 1 } });
-    return !!found;
+    return true;
 }
 
 async function bulkInsertContracts(records) {
-    if (!Array.isArray(records) || records.length === 0) return { inserted: 0, skipped: 0 };
-    const database = await connectDB();
-    const col = database.collection('contracts');
-
-    const operations = [];
+    if (!Array.isArray(records) || records.length === 0) {
+        return { inserted: 0, skipped: 0, total: 0 };
+    }
+    const prepared = [];
     for (const item of records) {
-        const norm = normalizeContract(item);
-        if (norm && norm.id) {
-            if (item.id) {
-                norm._id = String(item.id).trim();
-                norm.id = String(item.id).trim();
-            }
-            operations.push({
-                updateOne: {
-                    filter: { _id: norm._id },
-                    update: { $set: norm },
-                    upsert: true
-                }
-            });
+        const source = { ...item };
+        if (!source.id && !source._id) source.id = crypto.randomUUID();
+        if (!pickField(source, 'contractNumber', 'contract_number', '')) {
+            source.contract_number = await getNextContractNumber();
         }
+        prepared.push(toDatabaseRecord(source));
     }
-
-    if (operations.length === 0) return { inserted: 0, skipped: 0 };
-
-    const result = await col.bulkWrite(operations, { ordered: false });
-    const inserted = (result.upsertedCount || 0) + (result.modifiedCount || 0);
+    const rows = await supabaseRequest('contracts', {
+        method: 'POST',
+        query: 'on_conflict=id',
+        prefer: 'resolution=merge-duplicates,return=representation',
+        body: prepared
+    });
+    const inserted = Array.isArray(rows) ? rows.length : prepared.length;
     return { inserted, skipped: records.length - inserted, total: records.length };
-}
-
-async function seedDefaultUsers() {
-    const database = await connectDB();
-    const usersCol = database.collection('users');
-
-    const count = await usersCol.countDocuments();
-    if (count === 0) {
-        const defaultUsers = [
-            {
-                id: crypto.randomUUID(),
-                username: process.env.ADMIN_USERNAME || 'admin',
-                password: process.env.ADMIN_PASSWORD || 'admin',
-                full_name: 'مدير النظام',
-                email: 'admin@system.local',
-                created_at: new Date().toISOString()
-            },
-            {
-                id: crypto.randomUUID(),
-                username: 'ajeer',
-                password: 'ajeer2025',
-                full_name: 'مشرف نظام أجير',
-                email: 'ajeer@system.local',
-                created_at: new Date().toISOString()
-            }
-        ];
-
-        for (const u of defaultUsers) {
-            await usersCol.updateOne(
-                { username: u.username },
-                { $setOnInsert: u },
-                { upsert: true }
-            );
-        }
-        console.log('[MongoDB] Default users seeded into users collection.');
-    }
 }
 
 async function authenticateUser(username, password) {
     if (!username || !password) return null;
-    const database = await connectDB();
-    const usersCol = database.collection('users');
+    const params = new URLSearchParams();
+    params.set('select', 'id,username,full_name,email');
+    params.set('username', `eq.${String(username).trim()}`);
+    params.set('password', `eq.${String(password)}`);
+    params.set('limit', '1');
 
-    // 1. Try MongoDB users collection
-    const dbUser = await usersCol.findOne({
-        username: String(username).trim(),
-        password: String(password)
-    });
-
-    if (dbUser) {
-        return {
-            id: dbUser.id || String(dbUser._id),
-            username: dbUser.username,
-            full_name: dbUser.full_name || dbUser.username,
-            email: dbUser.email || `${dbUser.username}@system.local`
-        };
-    }
-
-    // 2. Fallback to Supabase Auth if provided in environment (and auto-migrate authenticated user to MongoDB)
-    const fetchFn = typeof fetch !== 'undefined' ? fetch : globalThis.fetch;
-    if (fetchFn && SUPABASE_URL && SUPABASE_ANON_KEY) {
-        try {
-            const loginEmail = username.includes('@') ? username : `${username}@system.local`;
-            const res = await fetchFn(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-                method: 'POST',
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email: loginEmail, password })
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data.user) {
-                    const u = {
-                        id: data.user.id || crypto.randomUUID(),
-                        username: username.includes('@') ? username.split('@')[0] : username,
-                        full_name: (data.user.user_metadata && data.user.user_metadata.full_name) || (username.includes('@') ? username.split('@')[0] : username),
-                        email: data.user.email || loginEmail,
-                        password: String(password),
-                        created_at: new Date().toISOString()
-                    };
-                    // Save to MongoDB for future logins
-                    await usersCol.updateOne(
-                        { username: u.username },
-                        { $set: u },
-                        { upsert: true }
-                    );
-                    return {
-                        id: u.id,
-                        username: u.username,
-                        full_name: u.full_name,
-                        email: u.email
-                    };
-                }
-            }
-        } catch (authErr) {
-            // Ignore fallback failure
-        }
-    }
-
-    return null;
+    const rows = await supabaseRequest('users', { query: params.toString() });
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    const user = rows[0];
+    return {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name || user.username,
+        email: user.email || `${user.username}@system.local`
+    };
 }
 
-async function migrateFromSupabaseIfNeeded(options = {}) {
-    const database = await connectDB();
-    const migrationsCol = database.collection('_migrations');
-    const contractsCol = database.collection('contracts');
-
-    const migrationRecord = await migrationsCol.findOne({ name: 'supabase_initial_migration' });
-    const existingCount = await contractsCol.countDocuments();
-
-    if (!options.force && migrationRecord && existingCount > 0) {
-        console.log(`[Migration] Supabase migration already completed previously (${existingCount} contracts in MongoDB).`);
-        return { alreadyCompleted: true, count: existingCount };
-    }
-
-    console.log('[Migration] Starting data migration from Supabase to MongoDB with ID preservation...');
-
-    const fetchFn = typeof fetch !== 'undefined' ? fetch : globalThis.fetch;
-    if (!fetchFn) {
-        throw new Error('fetch is not available in environment');
-    }
-
-    let allContracts = [];
-    let from = 0;
-    const batchSize = 1000;
-
-    try {
-        while (true) {
-            const to = from + batchSize - 1;
-            console.log(`[Migration] Fetching contracts range ${from}-${to} from Supabase...`);
-            const res = await fetchFn(`${SUPABASE_URL}/rest/v1/contracts?select=*`, {
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                    'Range': `${from}-${to}`
-                }
-            });
-
-            if (!res.ok) {
-                const errText = await res.text();
-                console.error(`[Migration] Error fetching contracts from Supabase (${res.status}):`, errText);
-                break;
-            }
-
-            const data = await res.json();
-            if (!Array.isArray(data) || data.length === 0) {
-                break;
-            }
-
-            allContracts = allContracts.concat(data);
-            console.log(`[Migration] Fetched ${data.length} records. Cumulative total: ${allContracts.length}`);
-
-            if (data.length < batchSize) {
-                break;
-            }
-            from += batchSize;
-        }
-
-        console.log(`[Migration] Total contracts fetched from Supabase: ${allContracts.length}`);
-
-        if (allContracts.length > 0) {
-            const operations = allContracts.map(c => {
-                const norm = normalizeContract(c);
-                // GUARANTEE: Never overwrite or change the original Supabase UUID
-                if (c.id) {
-                    norm._id = String(c.id).trim();
-                    norm.id = String(c.id).trim();
-                }
-                return {
-                    updateOne: {
-                        filter: { _id: norm._id },
-                        update: { $set: norm },
-                        upsert: true
-                    }
-                };
-            });
-
-            // Write in batches of 500
-            const chunkSize = 500;
-            for (let i = 0; i < operations.length; i += chunkSize) {
-                const chunk = operations.slice(i, i + chunkSize);
-                await contractsCol.bulkWrite(chunk, { ordered: false });
-                console.log(`[Migration] Inserted chunk ${i + 1} to ${Math.min(i + chunkSize, operations.length)} into MongoDB.`);
-            }
-        }
-
-        // Migrate any users if public.users exists
-        try {
-            const usersRes = await fetchFn(`${SUPABASE_URL}/rest/v1/users?select=*`, {
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                }
-            });
-            if (usersRes.ok) {
-                const usersData = await usersRes.json();
-                if (Array.isArray(usersData) && usersData.length > 0) {
-                    const usersCol = database.collection('users');
-                    for (const u of usersData) {
-                        await usersCol.updateOne(
-                            { username: u.username },
-                            { $set: u },
-                            { upsert: true }
-                        );
-                    }
-                    console.log(`[Migration] Migrated ${usersData.length} users from Supabase.`);
-                }
-            }
-        } catch (uErr) {
-            // users table may not exist
-        }
-
-        await seedDefaultUsers();
-
-        const totalMigrated = await contractsCol.countDocuments();
-        await migrationsCol.updateOne(
-            { name: 'supabase_initial_migration' },
-            {
-                $set: {
-                    name: 'supabase_initial_migration',
-                    completedAt: new Date().toISOString(),
-                    contractsCount: totalMigrated
-                }
-            },
-            { upsert: true }
-        );
-
-        console.log(`[Migration] Migration successfully finished! Total contracts in MongoDB: ${totalMigrated}`);
-        return { success: true, count: totalMigrated };
-    } catch (err) {
-        console.error('[Migration] Failed during migration:', err);
-        throw err;
-    }
+async function seedDefaultUsers() {
+    return { seeded: false };
 }
 
-async function closeDB() {
-    if (client) {
-        await client.close();
-        client = null;
-        db = null;
-        console.log('[MongoDB] Connection closed.');
-    }
+async function migrateFromSupabaseIfNeeded() {
+    const contracts = await listContracts();
+    return { success: true, count: contracts.length, provider: 'supabase' };
 }
 
 module.exports = {
