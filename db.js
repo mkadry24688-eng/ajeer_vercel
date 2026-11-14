@@ -301,7 +301,7 @@ async function bulkInsertContracts(records) {
 async function authenticateUser(username, password) {
     if (!username || !password) return null;
     const params = new URLSearchParams();
-    params.set('select', 'id,username,full_name,email');
+    params.set('select', 'id,username,full_name');
     params.set('username', `eq.${String(username).trim()}`);
     params.set('password', `eq.${String(password)}`);
     params.set('limit', '1');
