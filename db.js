@@ -298,8 +298,33 @@ async function bulkInsertContracts(records) {
     return { inserted, skipped: records.length - inserted, total: records.length };
 }
 
+function secureEquals(firstValue, secondValue) {
+    const firstBuffer = Buffer.from(String(firstValue));
+    const secondBuffer = Buffer.from(String(secondValue));
+
+    return firstBuffer.length === secondBuffer.length
+        && crypto.timingSafeEqual(firstBuffer, secondBuffer);
+}
+
 async function authenticateUser(username, password) {
     if (!username || !password) return null;
+
+    const adminUsername = process.env.ADMIN_USERNAME;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (
+        adminUsername &&
+        adminPassword &&
+        secureEquals(String(username).trim(), adminUsername) &&
+        secureEquals(password, adminPassword)
+    ) {
+        return {
+            id: 'environment-admin',
+            username: adminUsername,
+            full_name: process.env.ADMIN_FULL_NAME || 'مدير النظام',
+            email: ''
+        };
+    }
     const params = new URLSearchParams();
     params.set('select', 'id,username,full_name');
     params.set('username', `eq.${String(username).trim()}`);
