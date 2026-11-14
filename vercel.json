@@ -1,62 +1,67 @@
 {
-  "version": 2,
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/login",
-      "destination": "/login.html"
-    },
-    {
-      "source": "/ajeer",
-      "destination": "/ajeer/ajeer-dashboard.html"
-    },
-    {
-      "source": "/health",
-      "destination": "/health/health-dashboard.html"
-    },
-    {
-      "source": "/health/health-verify",
-      "destination": "/health/health-verify.html"
-    },
-    {
-      "source": "/health/health-certificate",
-      "destination": "/health/health-certificate.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=31536000; includeSubDomains; preload"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data: data:;"
-        }
-      ]
-    }
-  ]
+    "version":  2,
+    "cleanUrls":  true,
+    "trailingSlash":  false,
+    "rewrites":  [
+                     {
+                         "source":  "/",
+                         "destination":  "/index.html"
+                     },
+                     {
+                         "source":  "/login",
+                         "destination":  "/login.html"
+                     },
+                     {
+                         "source":  "/ajeer",
+                         "destination":  "/ajeer/ajeer-dashboard.html"
+                     },
+                     {
+                         "source":  "/health",
+                         "destination":  "/health/health-dashboard.html"
+                     },
+                     {
+                         "source":  "/health/health-verify",
+                         "destination":  "/health/health-verify.html"
+                     },
+                     {
+                         "source":  "/health/health-certificate",
+                         "destination":  "/health/health-certificate.html"
+                     }
+                 ],
+    "headers":  [
+                    {
+                        "source":  "/(.*)",
+                        "headers":  [
+                                        {
+                                            "key":  "Strict-Transport-Security",
+                                            "value":  "max-age=31536000; includeSubDomains; preload"
+                                        },
+                                        {
+                                            "key":  "X-Content-Type-Options",
+                                            "value":  "nosniff"
+                                        },
+                                        {
+                                            "key":  "X-Frame-Options",
+                                            "value":  "DENY"
+                                        },
+                                        {
+                                            "key":  "X-XSS-Protection",
+                                            "value":  "1; mode=block"
+                                        },
+                                        {
+                                            "key":  "Referrer-Policy",
+                                            "value":  "strict-origin-when-cross-origin"
+                                        },
+                                        {
+                                            "key":  "Content-Security-Policy",
+                                            "value":  "default-src \u0027self\u0027 https: \u0027unsafe-inline\u0027 \u0027unsafe-eval\u0027; img-src \u0027self\u0027 https: data: data:;"
+                                        }
+                                    ]
+                    }
+                ],
+    "functions":  {
+                      "server.js":  {
+                                        "includeFiles":  "{index.html,login.html,ajeer/**,health/**,shared/**,public-files.json,google*.html}"
+                                    }
+                  }
 }
