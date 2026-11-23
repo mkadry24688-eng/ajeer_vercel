@@ -211,7 +211,7 @@ async function listContracts() {
 
     while (true) {
         const rows = await supabaseRequest('contracts', {
-            query: 'select=*&order=start_date.desc.nullslast,created_at.desc',
+            query: 'select=*&order=created_at.desc.nullslast,start_date.desc.nullslast',
             range: { from: offset, to: offset + pageSize - 1 }
         });
 
