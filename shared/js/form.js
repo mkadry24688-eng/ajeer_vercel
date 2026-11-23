@@ -22,43 +22,55 @@ function formatYMD(date) {
   return `${y}-${m}-${d}`;
 }
 
+// Treat database DATE values as calendar dates, not UTC timestamps.
+// This prevents a date-only value from shifting when the browser timezone changes.
+function parseDateOnlyLocal(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const match = raw.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  if (match) {
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatDateForInput(dateStr) {
   if (!dateStr) return "";
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return String(dateStr).slice(0, 10);
-    return formatYMD(d);
-  } catch (_) {
-    return String(dateStr).slice(0, 10);
-  }
+  const date = parseDateOnlyLocal(dateStr);
+  return date ? formatYMD(date) : String(dateStr).slice(0, 10);
 }
 
 function initDefaultDates() {
   const startInput = document.getElementById("startDate") || document.querySelector('input[name="startDate"]');
   const endInput = document.getElementById("endDate") || document.querySelector('input[name="endDate"]');
 
-  if (startInput && !startInput.value) {
-    const today = new Date();
-    startInput.value = formatYMD(today);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    if (endInput && !endInput.value) {
-      const sixMonths = new Date(today);
+  // Fill each missing date independently. Previously, the end date was only
+  // initialized when the start date was also empty.
+  if (startInput && !startInput.value) {
+    startInput.value = formatYMD(today);
+  }
+  if (endInput && !endInput.value && startInput && startInput.value) {
+    const startDate = parseDateOnlyLocal(startInput.value);
+    if (startDate) {
+      const sixMonths = new Date(startDate);
       sixMonths.setMonth(sixMonths.getMonth() + 6);
       endInput.value = formatYMD(sixMonths);
     }
   }
 
-  if (startInput) {
+  if (startInput && !startInput.dataset.dateChangeBound) {
+    startInput.dataset.dateChangeBound = "1";
     startInput.addEventListener("change", () => {
-      if (startInput.value) {
-        const newStart = new Date(startInput.value);
-        if (!isNaN(newStart.getTime())) {
-          const newEnd = new Date(newStart);
-          newEnd.setMonth(newEnd.getMonth() + 6);
-          if (endInput) {
-            endInput.value = formatYMD(newEnd);
-          }
-        }
+      const newStart = parseDateOnlyLocal(startInput.value);
+      if (newStart && endInput) {
+        const newEnd = new Date(newStart);
+        newEnd.setMonth(newEnd.getMonth() + 6);
+        endInput.value = formatYMD(newEnd);
       }
     });
   }
@@ -652,6 +664,38 @@ async function handleSave(event) {
 
   if (!data.birthDate || data.birthDate.trim() === "") {
     delete data.birthDate;
+  }
+
+  // Guard against accidentally saving an old start date or an end date
+  // earlier than the start date. Keep intentional historical contracts editable
+  // after the administrator explicitly confirms the warning.
+  const startDateValue = data.startDate || "";
+  const endDateValue = data.endDate || "";
+  const parsedStartDate = parseDateOnlyLocal(startDateValue);
+  const parsedEndDate = parseDateOnlyLocal(endDateValue);
+  const todayForValidation = new Date();
+  todayForValidation.setHours(0, 0, 0, 0);
+  const dateWarnings = [];
+  if (parsedStartDate) {
+    parsedStartDate.setHours(0, 0, 0, 0);
+    if (parsedStartDate < todayForValidation) {
+      dateWarnings.push("تاريخ بداية العقد أقدم من تاريخ اليوم");
+    }
+  }
+  if (parsedStartDate && parsedEndDate && parsedEndDate < parsedStartDate) {
+    dateWarnings.push("تاريخ نهاية العقد أقدم من تاريخ بدايته");
+  }
+  if (dateWarnings.length) {
+    const confirmation = await Swal.fire({
+      icon: "warning",
+      title: "مراجعة تواريخ العقد",
+      text: dateWarnings.join("، ") + ". هل تريد الحفظ بهذه التواريخ كما هي؟",
+      showCancelButton: true,
+      confirmButtonText: "نعم، احفظ التواريخ",
+      cancelButtonText: "مراجعة التواريخ",
+      confirmButtonColor: "#b45309",
+    });
+    if (!confirmation.isConfirmed) return;
   }
 
   console.log("Birth Date:", data.birthDate);
