@@ -30,9 +30,14 @@ function apiHeaders(prefer = '') {
 async function supabaseRequest(table, options = {}) {
     requireConfig();
     const query = options.query ? `?${options.query}` : '';
+    const headers = apiHeaders(options.prefer || '');
+    if (options.range) {
+        headers.Range = `${options.range.from}-${options.range.to}`;
+        headers['Range-Unit'] = 'items';
+    }
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
         method: options.method || 'GET',
-        headers: apiHeaders(options.prefer || ''),
+        headers,
         body: options.body === undefined ? undefined : JSON.stringify(options.body)
     });
 
@@ -197,8 +202,27 @@ async function initIndexes() {
 }
 
 async function listContracts() {
-    const rows = await supabaseRequest('contracts', { query: 'select=*&order=created_at.desc' });
-    return Array.isArray(rows) ? rows.map(normalizeContract) : [];
+    // PostgREST/Supabase commonly caps a single response at 1,000 rows.
+    // Fetch in explicit ranges so the dashboard, counters, search and backup
+    // receive the complete contracts table instead of only the first page.
+    const pageSize = 500;
+    const allRows = [];
+    let offset = 0;
+
+    while (true) {
+        const rows = await supabaseRequest('contracts', {
+            query: 'select=*&order=created_at.desc',
+            range: { from: offset, to: offset + pageSize - 1 }
+        });
+
+        if (!Array.isArray(rows) || rows.length === 0) break;
+        allRows.push(...rows);
+        offset += rows.length;
+
+        if (rows.length < pageSize) break;
+    }
+
+    return allRows.map(normalizeContract);
 }
 
 async function getContract(id) {
